@@ -1,0 +1,321 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import QRCode from 'qrcode';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import { createTable, createTables, deleteTable } from '@/app/actions/table';
+import { toast } from 'react-hot-toast';
+import { PlusIcon, TrashIcon, QrCodeIcon, ArrowTopRightOnSquareIcon, ClipboardDocumentIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
+
+interface Table {
+    _id: string;
+    tableNumber: string;
+    qrCodeDataUrl?: string;
+    isActive: boolean;
+    isTakeaway?: boolean;
+}
+
+export function TableList({ initialTables, restaurantId }: { initialTables: Table[]; restaurantId: string }) {
+    const router = useRouter();
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [addMode, setAddMode] = useState<'automatic' | 'custom'>('automatic');
+    const [tableCount, setTableCount] = useState('1');
+    const [tableNumber, setTableNumber] = useState('');
+    const [selectedQR, setSelectedQR] = useState<string | null>(null);
+    const [qrBaseUrl, setQrBaseUrl] = useState('');
+    const [takeawayQR, setTakeawayQR] = useState('');
+    const [tableQRCodes, setTableQRCodes] = useState<Record<string, string>>({});
+    const takeawayTable = initialTables.find((table) => table.isTakeaway);
+    const dineInTables = initialTables.filter((table) => !table.isTakeaway)
+        .sort((a, b) => a.tableNumber.localeCompare(b.tableNumber, undefined, { numeric: true }));
+    const tableIds = dineInTables.map((table) => table._id).join(',');
+    const nextTableNumber = dineInTables.reduce((highest, table) => {
+        const value = Number(table.tableNumber);
+        return /^\d+$/.test(table.tableNumber) && Number.isSafeInteger(value) ? Math.max(highest, value) : highest;
+    }, dineInTables.length) + 1;
+    const takeawayPath = takeawayTable ? `/table/${restaurantId}/${takeawayTable._id}` : '';
+    const qrOrigin = (() => {
+        try {
+            const parsed = new URL(qrBaseUrl.trim());
+            return ['http:', 'https:'].includes(parsed.protocol) ? parsed.origin : '';
+        } catch { return ''; }
+    })();
+    const takeawayUrl = qrOrigin + takeawayPath;
+    const isLoopbackQr = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/.test(qrOrigin);
+
+    useEffect(() => { setQrBaseUrl(window.location.origin); }, []);
+
+    useEffect(() => {
+        let active = true;
+        if (!takeawayTable || !qrOrigin) {
+            setTakeawayQR('');
+            return;
+        }
+        try {
+            void QRCode.toDataURL(takeawayUrl, { width: 480, margin: 2, errorCorrectionLevel: 'H' })
+                .then((qr) => { if (active) setTakeawayQR(qr); })
+                .catch(() => { if (active) setTakeawayQR(''); });
+        } catch { setTakeawayQR(''); }
+        return () => { active = false; };
+    }, [qrOrigin, takeawayUrl, takeawayTable]);
+
+    useEffect(() => {
+        let active = true;
+        setTableQRCodes({});
+        if (!qrOrigin || !tableIds) return;
+        const ids = tableIds.split(',');
+        void Promise.all(ids.map(async (id) => [
+            id,
+            await QRCode.toDataURL(`${qrOrigin}/table/${restaurantId}/${id}`, { width: 400, margin: 2, errorCorrectionLevel: 'M' }),
+        ] as const)).then((entries) => {
+            if (active) setTableQRCodes(Object.fromEntries(entries));
+        }).catch(() => { if (active) setTableQRCodes({}); });
+        return () => { active = false; };
+    }, [qrOrigin, restaurantId, tableIds]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+
+        try {
+            const count = Number(tableCount);
+            if (addMode === 'automatic' && (!Number.isInteger(count) || count < 1 || count > 50)) {
+                toast.error('Choose between 1 and 50 tables');
+                return;
+            }
+            const result = addMode === 'automatic' ? await createTables(count) : await createTable(tableNumber.trim());
+
+            if (result.success) {
+                toast.success(addMode === 'automatic' ? `${count} ${count === 1 ? 'table' : 'tables'} added` : 'Table created successfully!');
+                setTableNumber('');
+                setTableCount('1');
+                setShowAddForm(false);
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Failed to create table');
+            }
+        } catch (error) {
+            toast.error('An error occurred');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this table?')) return;
+
+        const result = await deleteTable(id);
+        if (result.success) {
+            toast.success('Table deleted successfully');
+        } else {
+            toast.error('Failed to delete table');
+        }
+    };
+
+    const handleDownloadQR = (qrCode: string, tableName: string) => {
+        const link = document.createElement('a');
+        link.href = qrCode;
+        link.download = tableName === 'takeaway' ? 'takeaway-qr.png' : `table-${tableName}-qr.png`;
+        link.click();
+    };
+
+    return (
+        <div className="space-y-8">
+            {takeawayTable && (
+                <section className="overflow-hidden rounded-[28px] border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-5 shadow-sm sm:p-7">
+                    <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+                        <div>
+                            <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-violet-700"><ShoppingBagIcon className="h-4 w-4" /> Takeaway ordering</div>
+                            <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-gray-900">A menu ready to go.</h2>
+                            <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-600">Put this QR at your counter or on takeaway packaging. Guests see your same menu, order and track pickup from their phones. Their orders appear in the Takeaway category, separate from table orders.</p>
+                            <a href="/dashboard/profile" className="mt-2 inline-block text-xs font-semibold text-violet-700 hover:underline">Set packaging charge in Profile →</a>
+                            <div className="mt-5 flex flex-wrap gap-2">
+                                <Button onClick={() => takeawayQR && handleDownloadQR(takeawayQR, 'takeaway')} disabled={!takeawayQR} className="gap-2 bg-violet-600 text-white hover:bg-violet-700"><QrCodeIcon className="h-4 w-4" /> Download QR</Button>
+                                <a href={takeawayPath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50"><ArrowTopRightOnSquareIcon className="h-4 w-4" /> Open takeaway menu</a>
+                                <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(takeawayUrl); toast.success('Takeaway link copied'); }} disabled={!takeawayQR} className="gap-2 border-violet-200 text-violet-700"><ClipboardDocumentIcon className="h-4 w-4" /> Copy link</Button>
+                            </div>
+                            <label htmlFor="takeaway-base-url" className="mt-6 block text-xs font-semibold text-gray-700">Website address encoded in all QRs on this page</label>
+                            <input id="takeaway-base-url" type="url" value={qrBaseUrl} onChange={(event) => setQrBaseUrl(event.target.value)} className="mt-2 w-full max-w-lg rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200" placeholder="https://your-website.com" />
+                            {isLoopbackQr ? (
+                                <p className="mt-2 max-w-lg rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">A phone cannot open a localhost QR from your Mac. Enter your Mac’s network address here, such as http://192.168.x.x:5001, then download the updated QRs.</p>
+                            ) : (
+                                <p className="mt-2 text-xs text-gray-500">For phone scanning, both the phone and website must be reachable on the same network, or use your public website address.</p>
+                            )}
+                        </div>
+                        <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-[26px] border border-violet-100 bg-white p-4 shadow-lg shadow-violet-100/70">
+                            {takeawayQR ? <Image src={takeawayQR} alt="Takeaway ordering QR code" width={188} height={188} className="h-[188px] w-[188px]" unoptimized /> : <span className="text-center text-xs text-gray-400">Enter a valid website address to generate the QR</span>}
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-gray-900">Dine-in tables</h2>
+                <Button
+                    onClick={() => setShowAddForm(!showAddForm)}
+                    className="flex items-center gap-2 bg-sky-400 hover:bg-sky-500 text-white shadow-lg shadow-sky-400/20 transition-all hover:-translate-y-0.5"
+                >
+                    <PlusIcon className="h-5 w-5" />
+                    Add Table
+                </Button>
+            </div>
+
+            {showAddForm && (
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-8 animate-in fade-in slide-in-from-top-4">
+                    <h2 className="text-xl font-bold mb-6 text-gray-900 font-display">
+                        Add Tables
+                    </h2>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
+                            <button type="button" onClick={() => setAddMode('automatic')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${addMode === 'automatic' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Number automatically</button>
+                            <button type="button" onClick={() => setAddMode('custom')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${addMode === 'custom' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Custom label</button>
+                        </div>
+                        {addMode === 'automatic' ? (
+                            <div>
+                                <Input type="number" min="1" max="50" step="1" label="How many tables?" value={tableCount} onChange={(event) => setTableCount(event.target.value)} required className="bg-sky-50 border-sky-100 text-gray-900 focus:ring-sky-500 focus:border-sky-500" />
+                                <p className="mt-2 text-sm text-gray-600">{Number(tableCount) > 0 && Number(tableCount) <= 50 && Number.isInteger(Number(tableCount)) ? `This will add tables ${nextTableNumber}${Number(tableCount) > 1 ? `–${nextTableNumber + Number(tableCount) - 1}` : ''}, each with its own QR.` : 'Choose 1 to 50 tables.'}</p>
+                            </div>
+                        ) : (
+                            <Input label="Table Label" placeholder="e.g., A1 or VIP-1" value={tableNumber} onChange={(event) => setTableNumber(event.target.value)} required className="bg-sky-50 border-sky-100 text-gray-900 placeholder:text-gray-400 focus:ring-sky-500 focus:border-sky-500" />
+                        )}
+                        <div className="flex justify-end gap-3 pt-2">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setShowAddForm(false)}
+                                className="text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                isLoading={isSubmitting}
+                                className="bg-sky-400 hover:bg-sky-500 text-white shadow-lg shadow-sky-400/20"
+                            >
+                                {addMode === 'automatic' && Number(tableCount) > 1 ? `Add ${tableCount} Tables` : 'Add Table'}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {dineInTables.map((table) => (
+                    <div
+                        key={table._id}
+                        className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all group"
+                    >
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Table</h3>
+                                <p className="text-3xl font-bold text-gray-900 font-display mt-1">{table.tableNumber}</p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDelete(table._id)}
+                                className="text-red-400 hover:text-red-600 hover:bg-red-50 -mr-2"
+                            >
+                                <TrashIcon className="h-5 w-5" />
+                            </Button>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            {tableQRCodes[table._id] ? (
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col items-center gap-3 group-hover:bg-sky-50 group-hover:border-sky-100 transition-colors">
+                                    <div className="bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
+                                        <Image
+                                            src={tableQRCodes[table._id]}
+                                            alt={`QR Code for Table ${table.tableNumber}`}
+                                            width={120}
+                                            height={120}
+                                            className="rounded-md"
+                                        />
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDownloadQR(tableQRCodes[table._id], table.tableNumber)}
+                                        className="w-full justify-center text-sky-600 border-sky-200 hover:bg-sky-100 hover:border-sky-300"
+                                    >
+                                        <QrCodeIcon className="h-4 w-4 mr-2" />
+                                        Download QR
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="h-40 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 border border-dashed border-gray-200">
+                                    <p className="text-sm">Preparing QR for this address...</p>
+                                </div>
+                            )}
+
+                            <a
+                                href={`/table/${restaurantId}/${table._id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center p-3 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors border border-gray-100 text-sm font-medium"
+                            >
+                                <ArrowTopRightOnSquareIcon className="h-4 w-4 mr-2" />
+                                Open Table View
+                            </a>
+                        </div>
+                    </div>
+                ))}
+
+                {dineInTables.length === 0 && !showAddForm && (
+                    <div className="col-span-full text-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                        <div className="w-16 h-16 bg-sky-50 text-sky-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <PlusIcon className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900">No tables yet</h3>
+                        <p className="text-gray-500 mt-1 mb-6">
+                            Start by adding your first table.
+                        </p>
+                        <Button
+                            onClick={() => setShowAddForm(true)}
+                            className="bg-sky-400 hover:bg-sky-500 text-white"
+                        >
+                            Add Table
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            {
+                selectedQR && (
+                    <div
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        onClick={() => setSelectedQR(null)}
+                    >
+                        <div className="bg-white rounded-2xl p-8 max-w-md shadow-2xl animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold text-gray-900">QR Code</h3>
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedQR(null)} className="text-gray-500 hover:text-gray-900">
+                                    <span className="sr-only">Close</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </Button>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-inner mb-6">
+                                <Image
+                                    src={selectedQR}
+                                    alt="QR Code"
+                                    width={400}
+                                    height={400}
+                                    className="mx-auto rounded-lg"
+                                />
+                            </div>
+                            <p className="text-center text-sm text-gray-500">
+                                Scan this code to view the menu and place an order.
+                            </p>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
+    );
+}
