@@ -42,6 +42,8 @@ interface Order {
 
 interface RestaurantInfo {
     name: string;
+    address?: string;
+    phone?: string;
     logoUrl?: string;
     coverImageUrl?: string;
     themeColor?: string;
@@ -51,6 +53,7 @@ interface RestaurantInfo {
     colorScheme?: string;
     upiId?: string;
     upiPayeeName?: string;
+    fssaiNumber?: string;
     gstPercentage?: number;
     sgstPercentage?: number;
     packagingCharge?: number;
@@ -136,7 +139,7 @@ export default function OrderStatusPage() {
                 if (!mounted) return;
                 if (!result.success) throw new Error(result.error || 'Unable to load your order');
                 const freshPaidOrders = (result.orders as Order[]).filter((order) => {
-                    if (document.hidden || order.paymentStatus !== 'paid' || seenPaidOrders.current.has(order._id)) return false;
+                    if (document.hidden || order.status !== 'completed' || order.paymentStatus !== 'paid' || seenPaidOrders.current.has(order._id)) return false;
                     seenPaidOrders.current.add(order._id);
                     try {
                         const key = `payment_thanks:${currentVisit.visitId}:${order._id}`;
@@ -267,8 +270,8 @@ export default function OrderStatusPage() {
         .flatMap((order) => order.items.map((item) => item.name.toLowerCase().trim())));
     const memoryImages = menuItems.filter((item) => item.aestheticImageUrl && orderedNames.has(item.name.toLowerCase().trim()));
     const paymentOrder = orders.find((order) => order._id === paymentOrderId && order.status === 'completed' && order.paymentStatus !== 'paid' && typeof order.checkout?.payableAmount === 'number');
-    const visitFullyPaid = orders.some((order) => order.paymentStatus === 'paid') &&
-        orders.every((order) => order.status === 'cancelled' || order.paymentStatus === 'paid');
+    const visitFullyPaid = orders.some((order) => order.status === 'completed' && order.paymentStatus === 'paid') &&
+        orders.every((order) => order.status === 'cancelled' || (order.status === 'completed' && order.paymentStatus === 'paid'));
 
     if (loading) {
         return <div className="min-h-screen grid place-items-center bg-[#f7f7f4]"><div className="h-10 w-10 animate-spin rounded-full border-2 border-zinc-200 border-t-zinc-800" aria-label="Loading orders" /></div>;
@@ -404,7 +407,7 @@ export default function OrderStatusPage() {
                             </div>
 
                             <div className="border-t border-zinc-100 bg-zinc-50/80 p-5 sm:px-7">
-                                {order.paymentStatus === 'paid' ? (
+                                {order.status === 'completed' && order.paymentStatus === 'paid' ? (
                                     <div className="flex flex-wrap items-center justify-between gap-3">
                                         <div className="flex items-center gap-2 font-semibold" style={{ color: accent }}><CheckIcon className="h-5 w-5" /> Payment received. Thank you! Please come again.</div>
                                         <button type="button" onClick={() => setThankYouOrder(order)} className="rounded-full border px-3 py-2 text-xs font-semibold" style={{ borderColor: accent, color: accent }}>View thank-you</button>
@@ -523,9 +526,11 @@ export default function OrderStatusPage() {
             )}
             {thankYouOrder && (
                 <PaymentThankYou
-                    orderId={thankYouOrder._id}
-                    amount={thankYouOrder.checkout?.payableAmount}
+                    order={thankYouOrder}
                     restaurantName={restaurant?.name || 'the restaurant'}
+                    restaurantAddress={restaurant?.address}
+                    restaurantPhone={restaurant?.phone}
+                    fssaiNumber={restaurant?.fssaiNumber}
                     logoUrl={restaurant?.logoUrl}
                     accent={accent}
                     menuHref={tableUrl}

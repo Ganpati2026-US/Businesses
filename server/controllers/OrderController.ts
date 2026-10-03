@@ -58,16 +58,25 @@ export class OrderController {
     static async updatePaymentStatus(req: Request, res: Response) {
         try {
             const { orderId } = req.params;
-            const { paymentStatus } = req.body;
+            const { paymentStatus, paymentMethod } = req.body;
             const user = req.user;
 
             if (!user || !user.restaurantId) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const order = await OrderService.updatePaymentStatus(orderId as string, user.restaurantId.toString(), paymentStatus);
+            if (paymentStatus !== 'paid' || !['upi', 'cash'].includes(paymentMethod)) {
+                return res.status(400).json({ error: 'Choose UPI or cash before marking this order paid' });
+            }
+
+            const order = await OrderService.updatePaymentStatus(orderId as string, user.restaurantId.toString(), paymentMethod);
             if (!order) {
-                return res.status(404).json({ error: 'Order not found' });
+                return res.status(409).json({ error: 'Order must be completed and unpaid before recording payment' });
+            }
+
+            await order.populate('tableId', 'tableNumber');
+            if ((global as any).io) {
+                (global as any).io.to(`restaurant-${user.restaurantId}`).emit('order-updated', order);
             }
 
             res.json(order);

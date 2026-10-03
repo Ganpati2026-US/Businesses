@@ -47,8 +47,11 @@ CLOUDINARY_CLOUD_NAME=your_cloudinary_name
 CLOUDINARY_API_KEY=your_cloudinary_key
 CLOUDINARY_API_SECRET=your_cloudinary_secret
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_browser_maps_key
 SIGNUP_SECRET_KEY=gamma-secret-2026
 ```
+
+The Maps key enables Google address suggestions on signup and restaurant settings. Enable Maps JavaScript API and Places API (New) for that key, and restrict it to your website origins. The address field also accepts manual entry when the key is not configured.
 
 ### 3. Run Development Server
 Boot both the Express API backend and Next.js frontend concurrently:

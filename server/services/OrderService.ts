@@ -18,7 +18,6 @@ export class OrderService {
 
         const table = await Table.findOne({ _id: data.tableId, restaurantId: data.restaurantId, isActive: true });
         if (!table) throw new Error('This ordering QR is unavailable');
-        data.orderType = table.isTakeaway ? 'takeaway' : 'dine-in';
 
         const menuItemIds = data.items.map((item: any) => item.menuItemId);
         
@@ -48,8 +47,19 @@ export class OrderService {
             };
         });
 
-        data.total = calculatedTotal;
-        const order = new Order(data);
+        const order = new Order({
+            restaurantId: data.restaurantId,
+            tableId: data.tableId,
+            orderType: table.isTakeaway ? 'takeaway' : 'dine-in',
+            items: data.items,
+            total: calculatedTotal,
+            status: 'pending',
+            paymentStatus: 'pending',
+            sessionId: data.sessionId,
+            customerName: data.customerName,
+            customerPhone: data.customerPhone,
+            notes: data.notes,
+        });
         return order.save();
     }
 
@@ -118,13 +128,13 @@ export class OrderService {
     /**
      * Update payment status
      */
-    static async updatePaymentStatus(orderId: string, restaurantId: string, paymentStatus: 'pending' | 'paid'): Promise<IOrder | null> {
+    static async updatePaymentStatus(orderId: string, restaurantId: string, paymentMethod: 'upi' | 'cash'): Promise<IOrder | null> {
         if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(restaurantId)) {
             return null;
         }
         return Order.findOneAndUpdate(
-            { _id: orderId, restaurantId },
-            { paymentStatus },
+            { _id: orderId, restaurantId, status: 'completed', paymentStatus: { $ne: 'paid' } },
+            { $set: { paymentStatus: 'paid', paymentMethod, paidAt: new Date() } },
             { new: true }
         );
     }

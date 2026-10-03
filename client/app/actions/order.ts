@@ -129,11 +129,11 @@ export async function prepareCustomerCheckout(data: {
 /**
  * Update payment status
  */
-export async function updatePaymentStatus(orderId: string, paymentStatus: 'pending' | 'paid') {
+export async function updatePaymentStatus(orderId: string, paymentStatus: 'paid', paymentMethod: 'upi' | 'cash') {
     try {
         const res = await apiFetch(`/api/v1/orders/${orderId}/payment`, {
             method: 'PATCH',
-            body: JSON.stringify({ paymentStatus }),
+            body: JSON.stringify({ paymentStatus, paymentMethod }),
         });
 
         if (!res.ok) {

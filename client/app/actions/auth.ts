@@ -24,6 +24,9 @@ export async function signUpAction(data: {
     email: string;
     password: string;
     restaurantName: string;
+    fssaiNumber?: string;
+    phone?: string;
+    address: string;
     secretKey: string;
 }) {
     try {
@@ -47,4 +50,3 @@ export async function signUpAction(data: {
         return { success: false, error: 'Failed to create account' };
     }
 }
-

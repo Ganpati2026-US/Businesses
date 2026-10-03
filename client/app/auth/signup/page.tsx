@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { signUpAction, signInAction } from '@/app/actions/auth';
 import toast, { Toaster } from 'react-hot-toast';
 import { BrandFooter } from '@/components/BrandFooter';
+import { RestaurantAddressField } from '@/components/RestaurantAddressField';
 
 export default function SignUpPage() {
     const router = useRouter();
@@ -18,6 +19,9 @@ export default function SignUpPage() {
         password: '',
         confirmPassword: '',
         restaurantName: '',
+        fssaiNumber: '',
+        phone: '',
+        address: '',
         secretKey: '',
     });
 
@@ -37,6 +41,9 @@ export default function SignUpPage() {
                 email: formData.email,
                 password: formData.password,
                 restaurantName: formData.restaurantName,
+                fssaiNumber: formData.fssaiNumber,
+                phone: formData.phone,
+                address: formData.address,
                 secretKey: formData.secretKey,
             });
 
@@ -213,6 +220,19 @@ export default function SignUpPage() {
                                 </div>
                             </div>
                         </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <div>
+                                <label htmlFor="fssaiNumber" className="block text-xs font-semibold text-zinc-700 mb-1.5">FSSAI Number <span className="font-normal text-zinc-400">(optional)</span></label>
+                                <input id="fssaiNumber" type="text" inputMode="numeric" maxLength={30} value={formData.fssaiNumber} onChange={(e) => setFormData({ ...formData, fssaiNumber: e.target.value })} placeholder="Enter FSSAI number" className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" />
+                            </div>
+                            <div>
+                                <label htmlFor="restaurantPhone" className="block text-xs font-semibold text-zinc-700 mb-1.5">Restaurant Contact <span className="font-normal text-zinc-400">(optional)</span></label>
+                                <input id="restaurantPhone" type="tel" autoComplete="tel" maxLength={30} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="For printed KOT only" className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" />
+                            </div>
+                        </div>
+
+                        <RestaurantAddressField id="restaurantAddress" value={formData.address} onChange={(address) => setFormData((current) => ({ ...current, address }))} labelClassName="block text-xs font-semibold text-zinc-700 mb-1.5" inputClassName="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" />
 
                         {/* Email Address */}
                         <div>

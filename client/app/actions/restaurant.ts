@@ -32,10 +32,12 @@ export async function updateRestaurant(formData: FormData) {
         const colorScheme = formData.get('colorScheme') as string || 'light';
 
         const gstNumber = formData.get('gstNumber') as string;
+        const fssaiNumber = formData.get('fssaiNumber') as string;
         const gstPercentage = parseFloat(formData.get('gstPercentage') as string) || 0;
         const sgstPercentage = parseFloat(formData.get('sgstPercentage') as string) || 0;
         const packagingCharge = Number(formData.get('packagingCharge') ?? 0);
         const phone = formData.get('phone') as string;
+        const address = formData.get('address') as string;
         const enableAestheticDownloads = formData.get('enableAestheticDownloads') === 'true';
 
         let logoUrl = formData.get('logoUrl') as string;
@@ -46,6 +48,9 @@ export async function updateRestaurant(formData: FormData) {
 
         if (!name) {
             throw new Error('Restaurant name is required');
+        }
+        if (!address?.trim()) {
+            return { success: false, error: 'Restaurant address is required' };
         }
         if (!Number.isFinite(packagingCharge) || packagingCharge < 0 || packagingCharge > 10000 ||
             Math.abs(Math.round(packagingCharge * 100) - packagingCharge * 100) > 1e-8) {
@@ -93,12 +98,14 @@ export async function updateRestaurant(formData: FormData) {
                 fontFamily,
                 colorScheme,
                 gstNumber,
+                fssaiNumber,
                 gstPercentage,
                 sgstPercentage,
                 packagingCharge,
                 logoUrl,
                 coverImageUrl,
                 phone,
+                address: address.trim(),
                 enableAestheticDownloads,
             }),
         });
@@ -123,7 +130,7 @@ export async function getPublicRestaurantInfo(restaurantId: string) {
     try {
         await dbConnect();
         const restaurant = await Restaurant.findById(restaurantId)
-            .select('name upiId upiPayeeName merchantCode appId gstPercentage sgstPercentage packagingCharge themeColor logoAccentColor accentSource fontFamily colorScheme logoUrl coverImageUrl phone enableAestheticDownloads')
+            .select('name address phone upiId upiPayeeName merchantCode appId gstPercentage sgstPercentage packagingCharge fssaiNumber themeColor logoAccentColor accentSource fontFamily colorScheme logoUrl coverImageUrl enableAestheticDownloads')
             .lean();
         if (!restaurant) return null;
         return JSON.parse(JSON.stringify(restaurant));

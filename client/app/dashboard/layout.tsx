@@ -24,7 +24,7 @@ export default async function DashboardLayout({
                         <OrderAlerts restaurantId={session.user.restaurantId ? String(session.user.restaurantId) : undefined} baselineTime={Date.now()} />
                         {children}
                     </div>
-                    <BrandFooter className="mx-auto w-full max-w-7xl px-6 pb-6 pt-5" borderColor="#e2e8f0" />
+                    <BrandFooter className="flex h-24 w-full shrink-0 flex-col justify-center px-6" borderColor="#e2e8f0" />
                 </div>
             </main>
         </div>

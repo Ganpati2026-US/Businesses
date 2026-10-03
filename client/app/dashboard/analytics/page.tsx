@@ -7,46 +7,15 @@ import {
     FireIcon,
     SparklesIcon,
     ArrowTrendingUpIcon,
+    ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from '@/lib/utils';
 import DateFilter from '@/components/dashboard/DateFilter';
 import { AdvancedAnalyticsDashboard } from '@/components/dashboard/AdvancedAnalyticsDashboard';
+import { getAnalyticsDateRange, getAnalyticsPeriodLabel, normalizeAnalyticsPeriod } from '@/lib/analyticsPeriod';
 
 interface PageProps {
     searchParams: Promise<{ period?: string }>;
-}
-
-function getDateRange(period: string = 'month') {
-    const now = new Date();
-    const startDate = new Date();
-
-    switch (period) {
-        case 'today':
-            startDate.setHours(0, 0, 0, 0);
-            break;
-        case 'week':
-            startDate.setDate(now.getDate() - 7);
-            break;
-        case 'year':
-            startDate.setMonth(0, 1);
-            startDate.setHours(0, 0, 0, 0);
-            break;
-        case 'month':
-        default:
-            startDate.setDate(now.getDate() - 30);
-            break;
-    }
-
-    return { startDate, endDate: now };
-}
-
-function getPeriodLabel(period: string = 'month') {
-    switch (period) {
-        case 'today': return 'Today';
-        case 'week': return 'Last 7 Days';
-        case 'year': return 'This Year';
-        default: return 'Last 30 Days';
-    }
 }
 
 export default async function AnalyticsPage(props: PageProps) {
@@ -57,9 +26,9 @@ export default async function AnalyticsPage(props: PageProps) {
         redirect('/auth/signin');
     }
 
-    const { period } = searchParams;
-    const dateRange = getDateRange(period);
-    const periodLabel = getPeriodLabel(period);
+    const period = normalizeAnalyticsPeriod(searchParams.period);
+    const dateRange = getAnalyticsDateRange(period);
+    const periodLabel = getAnalyticsPeriodLabel(period);
 
     const [associationsRes, metricsRes] = await Promise.all([
         getAssociationRules(session.user.restaurantId, dateRange),
@@ -120,7 +89,12 @@ export default async function AnalyticsPage(props: PageProps) {
                         Performance insights &amp; patterns
                     </p>
                 </div>
-                <DateFilter />
+                <div className="flex flex-wrap items-center gap-3">
+                    <DateFilter />
+                    <a href={`/api/analytics/sales-export?period=${period}`} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700">
+                        <ArrowDownTrayIcon className="h-4 w-4" /> Download sales Excel
+                    </a>
+                </div>
             </div>
 
             {/* KPI Grid */}

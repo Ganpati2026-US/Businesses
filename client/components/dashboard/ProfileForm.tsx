@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { updateRestaurant } from '@/app/actions/restaurant';
 import { uploadFile } from '@/app/actions/upload';
+import { RestaurantAddressField } from '@/components/RestaurantAddressField';
 
 interface RestaurantData {
     _id: string;
@@ -20,6 +21,7 @@ interface RestaurantData {
     logoUrl?: string;
     coverImageUrl?: string;
     phone?: string;
+    address?: string;
     upiId?: string;
     upiPayeeName?: string;
     merchantCode?: string;
@@ -30,6 +32,7 @@ interface RestaurantData {
     accentSource?: 'logo' | 'custom';
     fontFamily?: string;
     gstNumber?: string;
+    fssaiNumber?: string;
     gstPercentage?: number;
     sgstPercentage?: number;
     packagingCharge?: number;
@@ -40,6 +43,7 @@ export default function ProfileForm({ initialData }: { initialData: RestaurantDa
     const [isSaving, setIsSaving] = useState(false);
     const [name, setName] = useState(initialData.name || '');
     const [phone, setPhone] = useState(initialData.phone || '');
+    const [address, setAddress] = useState(initialData.address || '');
     const [upiId, setUpiId] = useState(initialData.upiId || '');
     const [upiPayeeName, setUpiPayeeName] = useState(initialData.upiPayeeName || '');
     const [merchantCode, setMerchantCode] = useState(initialData.merchantCode || '0000');
@@ -49,6 +53,7 @@ export default function ProfileForm({ initialData }: { initialData: RestaurantDa
     const [accentSource, setAccentSource] = useState<'logo' | 'custom'>(initialData.accentSource || 'logo');
     const [fontFamily, setFontFamily] = useState(initialData.fontFamily || 'inter');
     const [gstNumber, setGstNumber] = useState(initialData.gstNumber || '');
+    const [fssaiNumber, setFssaiNumber] = useState(initialData.fssaiNumber || '');
     const [gstPercentage, setGstPercentage] = useState(initialData.gstPercentage?.toString() || '0');
     const [sgstPercentage, setSgstPercentage] = useState(initialData.sgstPercentage?.toString() || '0');
     const [packagingCharge, setPackagingCharge] = useState(initialData.packagingCharge?.toString() || '0');
@@ -231,6 +236,7 @@ export default function ProfileForm({ initialData }: { initialData: RestaurantDa
             const submitData = new FormData();
             submitData.append('name', name);
             submitData.append('phone', phone);
+            submitData.append('address', address);
             submitData.append('upiId', upiId);
             submitData.append('upiPayeeName', upiPayeeName);
             submitData.append('merchantCode', merchantCode);
@@ -240,6 +246,7 @@ export default function ProfileForm({ initialData }: { initialData: RestaurantDa
             submitData.append('fontFamily', fontFamily);
             submitData.append('colorScheme', colorScheme);
             submitData.append('gstNumber', gstNumber);
+            submitData.append('fssaiNumber', fssaiNumber);
             submitData.append('gstPercentage', gstPercentage);
             submitData.append('sgstPercentage', sgstPercentage);
             submitData.append('packagingCharge', packagingCharge);
@@ -307,8 +314,10 @@ export default function ProfileForm({ initialData }: { initialData: RestaurantDa
                             className={inputClass}
                             placeholder="Enter contact number (e.g. +91 98765 43210)"
                         />
-                        <p className={hintClass}>Used for generating bill receipts and customer communications</p>
+                        <p className={hintClass}>Printed on kitchen order tickets only.</p>
                     </div>
+
+                    <RestaurantAddressField id="address" value={address} onChange={setAddress} labelClassName={labelClass} inputClassName={inputClass} />
 
                     {/* Logo */}
                     <div>
@@ -603,6 +612,10 @@ export default function ProfileForm({ initialData }: { initialData: RestaurantDa
                             className={`${inputClass} uppercase font-mono`}
                             placeholder="GSTIN..."
                         />
+                    </div>
+                    <div>
+                        <label htmlFor="fssaiNumber" className={labelClass}>FSSAI Number</label>
+                        <input type="text" name="fssaiNumber" id="fssaiNumber" inputMode="numeric" maxLength={30} value={fssaiNumber} onChange={(e) => setFssaiNumber(e.target.value)} className={inputClass} placeholder="Enter FSSAI number" />
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                         <div>

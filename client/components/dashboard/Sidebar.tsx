@@ -14,6 +14,7 @@ import {
     ArrowRightOnRectangleIcon,
     UserCircleIcon,
     ArchiveBoxIcon,
+    CreditCardIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
     { name: 'Orders', href: '/dashboard/orders', icon: ShoppingBagIcon },
     { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
     { name: 'Inventory', href: '/dashboard/inventory', icon: ArchiveBoxIcon },
+    { name: 'Subscription', href: '/dashboard/subscription', icon: CreditCardIcon },
 ];
 
 export default function Sidebar() {
@@ -39,7 +41,7 @@ export default function Sidebar() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-sky-50 text-slate-900 w-64 border-r border-sky-100">
+        <div className="flex h-full w-64 shrink-0 flex-col border-r border-sky-100 bg-sky-50 text-slate-900">
             {isSigningOut && <DivineTransition deity="lakshmi" />}
             <div className="px-6 py-7 border-b border-sky-100">
                 <div className="flex items-center gap-3">
@@ -71,7 +73,7 @@ export default function Sidebar() {
             </nav>
 
             {/* Sign Out */}
-            <div className="px-3 py-4 border-t border-sky-100">
+            <div className="flex h-24 shrink-0 items-center border-t border-slate-200 px-3">
                 <button
                     onClick={handleSignOut}
                     disabled={isSigningOut}

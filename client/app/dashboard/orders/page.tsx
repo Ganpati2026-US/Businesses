@@ -35,7 +35,7 @@ export default async function OrdersPage() {
             .populate('tableId', '-qrCodeDataUrl')
             .sort({ createdAt: -1 })
             .lean(),
-        Restaurant.findById(session.user.restaurantId).select('name gstNumber gstPercentage sgstPercentage packagingCharge address phone').lean()
+        Restaurant.findById(session.user.restaurantId).select('name gstNumber fssaiNumber gstPercentage sgstPercentage packagingCharge address phone').lean()
     ]);
     const ordersById = new Map([...recentOrders, ...unpaidOrders, ...takeawayOrders].map(order => [String(order._id), order]));
     const orders = [...ordersById.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

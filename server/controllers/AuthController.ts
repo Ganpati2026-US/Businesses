@@ -9,11 +9,14 @@ export class AuthController {
      */
     static async signup(req: Request, res: Response) {
         try {
-            const { name, email, password, restaurantName, secretKey } = req.body;
+            const { name, email, password, restaurantName, fssaiNumber, phone, address, secretKey } = req.body;
 
             const validKey = process.env.SIGNUP_SECRET_KEY;
             if (!validKey || secretKey !== validKey) {
                 return res.status(400).json({ error: 'Invalid signup secret key' });
+            }
+            if (typeof address !== 'string' || !address.trim()) {
+                return res.status(400).json({ error: 'Restaurant address is required' });
             }
 
             // Check if user already exists
@@ -55,6 +58,9 @@ export class AuthController {
                 name: restaurantName,
                 slug,
                 ownerId: user._id,
+                fssaiNumber: typeof fssaiNumber === 'string' ? fssaiNumber.trim().slice(0, 30) : '',
+                phone: typeof phone === 'string' ? phone.trim().slice(0, 30) : '',
+                address: address.trim().slice(0, 300),
             });
 
             // Update user

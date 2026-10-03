@@ -47,6 +47,8 @@ export interface IOrder extends Document {
     createdAt: Date;
     updatedAt: Date;
     paymentStatus?: 'pending' | 'paid';
+    paymentMethod?: 'upi' | 'cash';
+    paidAt?: Date;
     checkout?: IOrderCheckout;
     review?: IOrderReview;
 }
@@ -125,6 +127,11 @@ const orderSchema = new Schema<IOrder>(
             enum: ['pending', 'paid'],
             default: 'pending',
         },
+        paymentMethod: {
+            type: String,
+            enum: ['upi', 'cash'],
+        },
+        paidAt: Date,
         checkout: {
             couponCode: { type: String, default: '' },
             discountAmount: { type: Number, min: 0 },

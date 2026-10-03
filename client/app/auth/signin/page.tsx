@@ -13,6 +13,7 @@ export default function SignInPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showWelcome, setShowWelcome] = useState(false);
+    const [loginArea, setLoginArea] = useState<'restaurant' | 'owner'>('restaurant');
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -27,7 +28,7 @@ export default function SignInPage() {
 
             if (result.success) {
                 setShowWelcome(true);
-                window.setTimeout(() => router.push('/dashboard'), 2200);
+                window.setTimeout(() => router.push(loginArea === 'owner' ? '/dashboard/subscription' : '/dashboard'), 2200);
             } else {
                 toast.error(result.error || 'Failed to sign in');
             }
@@ -131,8 +132,13 @@ export default function SignInPage() {
                     <div>
                         <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900">Welcome back</h2>
                         <p className="text-zinc-500 text-sm mt-1.5 leading-relaxed">
-                            Sign in to your BitByte account to manage your operations.
+                            {loginArea === 'owner' ? 'Sign in to manage your BitByte subscription and renewals.' : 'Sign in to your BitByte account to manage your operations.'}
                         </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100 p-1" aria-label="Sign in area">
+                        <button type="button" onClick={() => setLoginArea('restaurant')} aria-pressed={loginArea === 'restaurant'} className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition ${loginArea === 'restaurant' ? 'bg-white text-indigo-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>Restaurant login</button>
+                        <button type="button" onClick={() => setLoginArea('owner')} aria-pressed={loginArea === 'owner'} className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition ${loginArea === 'owner' ? 'bg-white text-indigo-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>Owner billing</button>
                     </div>
 
                     {/* Workspace Indicator Card */}
@@ -143,8 +149,8 @@ export default function SignInPage() {
                             </svg>
                         </div>
                         <div>
-                            <h4 className="text-xs font-bold text-zinc-900">Restaurant Dashboard</h4>
-                            <p className="text-[10.5px] text-indigo-700/85 mt-0.5">Access your tables, menu, and real-time orders.</p>
+                            <h4 className="text-xs font-bold text-zinc-900">{loginArea === 'owner' ? 'Owner subscription' : 'Restaurant Dashboard'}</h4>
+                            <p className="text-[10.5px] text-indigo-700/85 mt-0.5">{loginArea === 'owner' ? 'Review your renewal and AutoPay options.' : 'Access your tables, menu, and real-time orders.'}</p>
                         </div>
                     </div>
 

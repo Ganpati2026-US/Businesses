@@ -47,17 +47,22 @@ export class RestaurantController {
                 fontFamily,
                 colorScheme,
                 gstNumber,
+                fssaiNumber,
                 gstPercentage,
                 sgstPercentage,
                 packagingCharge,
                 logoUrl,
                 coverImageUrl,
                 phone,
+                address,
                 enableAestheticDownloads,
             } = req.body;
 
             if (!name) {
                 return res.status(400).json({ error: 'Restaurant name is required' });
+            }
+            if (typeof address !== 'string' || !address.trim()) {
+                return res.status(400).json({ error: 'Restaurant address is required' });
             }
             const parsedPackagingCharge = Number(packagingCharge ?? 0);
             if (!Number.isFinite(parsedPackagingCharge) || parsedPackagingCharge < 0 || parsedPackagingCharge > 10000 ||
@@ -65,7 +70,7 @@ export class RestaurantController {
                 return res.status(400).json({ error: 'Packaging charge must be between ₹0 and ₹10,000 with at most two decimal places' });
             }
 
-            const existing = await Restaurant.findById(user.restaurantId).select('logoUrl logoAccentColor');
+            const existing = await Restaurant.findById(user.restaurantId).select('logoUrl logoAccentColor fssaiNumber');
             if (!existing) {
                 return res.status(404).json({ error: 'Restaurant not found' });
             }
@@ -87,6 +92,7 @@ export class RestaurantController {
                     fontFamily: fontFamily || 'inter',
                     colorScheme: colorScheme || 'light',
                     gstNumber,
+                    fssaiNumber: typeof fssaiNumber === 'string' ? fssaiNumber.trim().slice(0, 30) : existing.fssaiNumber || '',
                     gstPercentage: parseFloat(gstPercentage) || 0,
                     sgstPercentage: parseFloat(sgstPercentage) || 0,
                     packagingCharge: parsedPackagingCharge,
@@ -94,6 +100,7 @@ export class RestaurantController {
                     logoAccentColor,
                     coverImageUrl,
                     phone,
+                    address: address.trim().slice(0, 300),
                     enableAestheticDownloads: !!enableAestheticDownloads,
                 },
                 { new: true }
@@ -122,7 +129,7 @@ export class RestaurantController {
             }
 
             const restaurant = await Restaurant.findById(id)
-                .select('name description upiId upiPayeeName merchantCode appId gstPercentage sgstPercentage packagingCharge themeColor logoAccentColor accentSource fontFamily colorScheme logoUrl coverImageUrl phone enableAestheticDownloads')
+                .select('name description address phone upiId upiPayeeName merchantCode appId gstPercentage sgstPercentage packagingCharge fssaiNumber themeColor logoAccentColor accentSource fontFamily colorScheme logoUrl coverImageUrl enableAestheticDownloads')
                 .lean();
 
             if (!restaurant) {

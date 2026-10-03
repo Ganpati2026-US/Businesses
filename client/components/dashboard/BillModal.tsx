@@ -9,10 +9,11 @@ import { useReactToPrint } from 'react-to-print';
 interface Restaurant {
     name: string;
     gstNumber?: string;
+    fssaiNumber?: string;
     gstPercentage?: number;
     sgstPercentage?: number;
     packagingCharge?: number;
-    address?: string; // Optional: Add address to bill if available later
+    address?: string;
     phone?: string;
 }
 
@@ -92,12 +93,13 @@ export default function BillModal({ isOpen, onClose, order, restaurant }: BillMo
                                     <div ref={componentRef} className="bg-white p-4 print:p-0 text-sm">
                                         <div className="text-center mb-6">
                                             <h2 className="text-xl font-bold text-gray-900 uppercase tracking-widest">{restaurant.name}</h2>
-                                            {restaurant.phone && (
-                                                <p className="text-gray-500 text-xs mt-1">Tel: {restaurant.phone}</p>
-                                            )}
+                                            {restaurant.address && <p className="text-gray-500 text-xs mt-1">{restaurant.address}</p>}
+                                            {restaurant.phone && <p className="text-gray-500 text-xs mt-1">Contact: {restaurant.phone}</p>}
                                             {restaurant.gstNumber && (
                                                 <p className="text-gray-500 text-xs mt-1 font-mono">GSTIN: {restaurant.gstNumber}</p>
                                             )}
+                                            {restaurant.fssaiNumber && <p className="text-gray-500 text-xs mt-1 font-mono">FSSAI: {restaurant.fssaiNumber}</p>}
+                                            {order.paymentStatus === 'paid' && <p className="text-gray-500 text-xs mt-1">Paid{order.paymentMethod ? ` via ${order.paymentMethod.toUpperCase()}` : ''}</p>}
                                             <p className="text-gray-500 text-xs mt-1">{order.orderType === 'takeaway' ? 'Thank you for ordering with us!' : 'Thank you for dining with us!'}</p>
                                         </div>
 

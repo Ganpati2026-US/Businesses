@@ -17,10 +17,12 @@ export interface IRestaurant extends Document {
     merchantCode?: string;
     appId?: string;
     gstNumber?: string;
+    fssaiNumber?: string;
     gstPercentage?: number;
     sgstPercentage?: number;
     packagingCharge?: number;
     phone?: string;
+    address?: string;
     status: 'active' | 'suspended' | 'onboarding';
     customDomain?: string;
     enableAestheticDownloads?: boolean;
@@ -108,6 +110,11 @@ const restaurantSchema = new Schema<IRestaurant>(
             trim: true,
             default: '',
         },
+        fssaiNumber: {
+            type: String,
+            trim: true,
+            default: '',
+        },
         gstPercentage: {
             type: Number,
             default: 0,
@@ -125,6 +132,11 @@ const restaurantSchema = new Schema<IRestaurant>(
             max: 10000,
         },
         phone: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        address: {
             type: String,
             trim: true,
             default: '',

@@ -11,17 +11,19 @@ import { formatCurrency } from '@/lib/utils';
 type IncomingOrder = {
     _id: string;
     createdAt: string;
+    status?: 'pending' | 'preparing' | 'served' | 'completed' | 'cancelled';
     orderType?: 'dine-in' | 'takeaway';
     tableId?: { tableNumber?: string };
     items: { name: string; quantity: number }[];
     total: number;
 };
 
-function playStationBell(context: AudioContext, buffer: AudioBuffer) {
+function playServiceBell(context: AudioContext, buffer: AudioBuffer) {
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(context.destination);
     source.start();
+    return source;
 }
 
 export default function OrderAlerts({ restaurantId, baselineTime }: { restaurantId?: string; baselineTime: number }) {
@@ -33,22 +35,30 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
     const audioContext = useRef<AudioContext | null>(null);
     const bellBuffer = useRef<AudioBuffer | null>(null);
     const bellBufferPromise = useRef<Promise<AudioBuffer> | null>(null);
+    const bellEnabledRef = useRef(true);
+    const pendingOrderIds = useRef(new Set<string>());
+    const activeBellSources = useRef(new Set<AudioBufferSourceNode>());
+    const secondRingTimer = useRef<number | null>(null);
+    const ringing = useRef(false);
+    const lastSocketChangeAt = useRef(0);
     const knownOrderIds = useRef(new Set<string>());
     const mountedAt = useRef(baselineTime);
 
     useEffect(() => {
         if (!restaurantId) return;
         try {
-            setBellEnabled(localStorage.getItem('orders-bell-enabled') !== 'false');
+            const enabled = localStorage.getItem('orders-bell-enabled') !== 'false';
+            bellEnabledRef.current = enabled;
+            setBellEnabled(enabled);
         } catch { /* Keep the current tab setting when storage is unavailable. */ }
 
         const context = new AudioContext();
         const abort = new AbortController();
         let active = true;
         audioContext.current = context;
-        bellBufferPromise.current = fetch('/station-bell.wav', { signal: abort.signal })
+        bellBufferPromise.current = fetch('/service-bell.wav', { signal: abort.signal })
             .then(response => {
-                if (!response.ok) throw new Error(`Station bell could not load: ${response.status}`);
+                if (!response.ok) throw new Error(`Service bell could not load: ${response.status}`);
                 return response.arrayBuffer();
             })
             .then(data => context.decodeAudioData(data));
@@ -57,7 +67,7 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
             bellBuffer.current = buffer;
             if (context.state === 'running') setBellReady(true);
         }).catch(error => {
-            if (active) console.error('[OrderAlerts] Station bell could not load:', error);
+            if (active) console.error('[OrderAlerts] Service bell could not load:', error);
         });
 
         const unlock = () => {
@@ -69,6 +79,13 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
         return () => {
             active = false;
             abort.abort();
+            if (secondRingTimer.current !== null) window.clearTimeout(secondRingTimer.current);
+            for (const source of activeBellSources.current) {
+                try { source.stop(); } catch { /* Already ended. */ }
+            }
+            activeBellSources.current.clear();
+            pendingOrderIds.current.clear();
+            ringing.current = false;
             window.removeEventListener('pointerdown', unlock);
             window.removeEventListener('keydown', unlock);
             void context.close();
@@ -78,25 +95,50 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
         };
     }, [restaurantId]);
 
+    const stopRinging = useCallback(() => {
+        if (secondRingTimer.current !== null) window.clearTimeout(secondRingTimer.current);
+        secondRingTimer.current = null;
+        ringing.current = false;
+        for (const source of activeBellSources.current) {
+            try { source.stop(); } catch { /* Already ended. */ }
+        }
+        activeBellSources.current.clear();
+    }, []);
+
     const ringAutomatically = useCallback(async () => {
-        if (!bellEnabled) return;
+        if (!bellEnabledRef.current || !pendingOrderIds.current.size || ringing.current) return;
+        ringing.current = true;
         const context = audioContext.current;
-        const buffer = bellBuffer.current;
-        if (!context || !buffer) return;
+        if (!context) { ringing.current = false; return; }
         try {
+            const buffer = bellBuffer.current ?? await bellBufferPromise.current;
+            if (!buffer || !bellEnabledRef.current || !pendingOrderIds.current.size) { ringing.current = false; return; }
             await context.resume();
-            if (context.state === 'running') {
-                setBellReady(true);
-                playStationBell(context, buffer);
-            }
+            if (context.state !== 'running' || !bellEnabledRef.current || !pendingOrderIds.current.size) { ringing.current = false; return; }
+            setBellReady(true);
+            const first = playServiceBell(context, buffer);
+            activeBellSources.current.add(first);
+            first.onended = () => activeBellSources.current.delete(first);
+            secondRingTimer.current = window.setTimeout(() => {
+                secondRingTimer.current = null;
+                if (bellEnabledRef.current && pendingOrderIds.current.size && context.state === 'running') {
+                    const second = playServiceBell(context, buffer);
+                    activeBellSources.current.add(second);
+                    second.onended = () => activeBellSources.current.delete(second);
+                }
+                ringing.current = false;
+            }, Math.ceil(buffer.duration * 1000) + 200);
         } catch {
+            ringing.current = false;
             setBellReady(false);
         }
-    }, [bellEnabled]);
+    }, []);
 
     const notifyNewOrder = useCallback((order: IncomingOrder) => {
         if (knownOrderIds.current.has(order._id)) return;
         knownOrderIds.current.add(order._id);
+        if (order.status && order.status !== 'pending') return;
+        pendingOrderIds.current.add(order._id);
         void ringAutomatically();
 
         const isTakeaway = order.orderType === 'takeaway';
@@ -137,10 +179,23 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
 
     useEffect(() => {
         if (!socket) return;
-        const onNewOrder = (order: IncomingOrder) => notifyNewOrder(order);
+        const onNewOrder = (order: IncomingOrder) => {
+            lastSocketChangeAt.current = Date.now();
+            notifyNewOrder(order);
+        };
+        const onOrderUpdated = (order: IncomingOrder) => {
+            lastSocketChangeAt.current = Date.now();
+            if (order.status === 'pending') pendingOrderIds.current.add(order._id);
+            else pendingOrderIds.current.delete(order._id);
+            if (!pendingOrderIds.current.size) stopRinging();
+        };
         socket.on('new-order', onNewOrder);
-        return () => { socket.off('new-order', onNewOrder); };
-    }, [socket, notifyNewOrder]);
+        socket.on('order-updated', onOrderUpdated);
+        return () => {
+            socket.off('new-order', onNewOrder);
+            socket.off('order-updated', onOrderUpdated);
+        };
+    }, [socket, notifyNewOrder, stopRinging]);
 
     useEffect(() => {
         if (!restaurantId) return;
@@ -149,14 +204,21 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
         const refresh = async () => {
             if (fetching) return;
             fetching = true;
+            const refreshStartedAt = Date.now();
             try {
                 const result = await getOrders();
                 if (!active || !result.success || !result.data) return;
-                (result.data as IncomingOrder[]).forEach(order => {
+                if (lastSocketChangeAt.current >= refreshStartedAt) return;
+                const orders = result.data as IncomingOrder[];
+                const hadPendingOrders = pendingOrderIds.current.size > 0;
+                pendingOrderIds.current = new Set(orders.filter(order => order.status === 'pending').map(order => order._id));
+                if (!pendingOrderIds.current.size) stopRinging();
+                orders.forEach(order => {
                     if (knownOrderIds.current.has(order._id)) return;
-                    if (new Date(order.createdAt).getTime() >= mountedAt.current) notifyNewOrder(order);
+                    if (order.status === 'pending' && new Date(order.createdAt).getTime() >= mountedAt.current) notifyNewOrder(order);
                     else knownOrderIds.current.add(order._id);
                 });
+                if (!hadPendingOrders && pendingOrderIds.current.size) void ringAutomatically();
             } catch (error) {
                 console.error('[OrderAlerts] Could not refresh orders:', error);
             } finally {
@@ -166,7 +228,13 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
         void refresh();
         const interval = window.setInterval(refresh, 10000);
         return () => { active = false; window.clearInterval(interval); };
-    }, [restaurantId, notifyNewOrder]);
+    }, [restaurantId, notifyNewOrder, ringAutomatically, stopRinging]);
+
+    useEffect(() => {
+        if (!restaurantId) return;
+        const interval = window.setInterval(() => { void ringAutomatically(); }, 12000);
+        return () => window.clearInterval(interval);
+    }, [restaurantId, ringAutomatically]);
 
     const playPreview = async () => {
         try {
@@ -174,21 +242,24 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
             if (!context) return;
             await context.resume();
             const buffer = await bellBufferPromise.current;
-            if (!buffer) throw new Error('Station bell is unavailable');
+            if (!buffer) throw new Error('Service bell is unavailable');
+            bellEnabledRef.current = true;
             setBellEnabled(true);
             try { localStorage.setItem('orders-bell-enabled', 'true'); } catch { /* Keep the current tab setting. */ }
             setBellReady(true);
-            playStationBell(context, buffer);
+            playServiceBell(context, buffer);
         } catch {
             setBellReady(false);
-            toast.error('Could not play the station bell');
+            toast.error('Could not play the service bell');
         }
     };
 
     const toggleBell = async () => {
         const next = !bellEnabled || !bellReady;
+        bellEnabledRef.current = next;
         setBellEnabled(next);
         try { localStorage.setItem('orders-bell-enabled', String(next)); } catch { /* Keep the current tab setting. */ }
+        if (!next) stopRinging();
         if (next) await playPreview();
     };
 
@@ -199,12 +270,12 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
                 <div className="rounded-xl bg-violet-100 p-2 text-violet-700"><BellAlertIcon className="h-5 w-5" /></div>
                 <div>
                     <p className="text-sm font-bold text-slate-900">Automatic new order alerts</p>
-                    <p className="text-xs text-slate-500">New orders ring the station bell on any dashboard page</p>
+                    <p className="text-xs text-slate-500">New orders ring twice, then repeat until preparation starts</p>
                 </div>
             </div>
             <div className="flex items-center gap-2">
                 <button type="button" onClick={playPreview} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600">
-                    <SpeakerWaveIcon className="h-4 w-4" /> Test bell
+                    <SpeakerWaveIcon className="h-4 w-4" /> Test service bell
                 </button>
                 <button type="button" onClick={toggleBell} aria-pressed={bellEnabled && bellReady} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 ${bellEnabled && bellReady ? 'border-violet-200 bg-white text-violet-700 hover:bg-violet-50' : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'}`}>
                     {bellEnabled && bellReady ? <BellAlertIcon className="h-4 w-4" /> : <BellSlashIcon className="h-4 w-4" />}

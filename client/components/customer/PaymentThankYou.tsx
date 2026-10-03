@@ -1,24 +1,50 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useReactToPrint } from 'react-to-print';
 import { formatCurrency } from '@/lib/utils';
 import { contrastTextColor } from '@/lib/color';
 import styles from './PaymentThankYou.module.css';
 import { BrandFooter } from '@/components/BrandFooter';
 
 interface PaymentThankYouProps {
-    orderId: string;
-    amount?: number;
+    order: {
+        _id: string;
+        createdAt: string;
+        total: number;
+        status: string;
+        paymentStatus?: string;
+        paymentMethod?: 'upi' | 'cash';
+        orderType?: string;
+        items: { name: string; price: number; quantity: number }[];
+        checkout?: {
+            discountAmount?: number;
+            tipAmount?: number;
+            packagingCharge?: number;
+            gstRate?: number;
+            sgstRate?: number;
+            gstAmount?: number;
+            sgstAmount?: number;
+            payableAmount: number;
+        };
+    };
     restaurantName: string;
+    restaurantAddress?: string;
+    restaurantPhone?: string;
+    fssaiNumber?: string;
     logoUrl?: string;
     accent: string;
     menuHref: string;
     onClose: () => void;
 }
 
-export function PaymentThankYou({ orderId, amount, restaurantName, logoUrl, accent, menuHref, onClose }: PaymentThankYouProps) {
+export function PaymentThankYou({ order, restaurantName, restaurantAddress, restaurantPhone, fssaiNumber, logoUrl, accent, menuHref, onClose }: PaymentThankYouProps) {
+    const billRef = useRef<HTMLDivElement>(null);
+    const saveBill = useReactToPrint({ contentRef: billRef, documentTitle: `Bill-${order._id.slice(-6).toUpperCase()}` });
+    const checkout = order.checkout;
+    const amount = checkout?.payableAmount ?? order.total;
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
@@ -29,6 +55,8 @@ export function PaymentThankYou({ orderId, amount, restaurantName, logoUrl, acce
             window.removeEventListener('keydown', onKeyDown);
         };
     }, [onClose]);
+
+    if (order.status !== 'completed' || order.paymentStatus !== 'paid') return null;
 
     return (
         <div
@@ -71,17 +99,45 @@ export function PaymentThankYou({ orderId, amount, restaurantName, logoUrl, acce
 
                     <div className={`mt-9 w-full max-w-sm rounded-[22px] border border-zinc-200 bg-white/80 px-5 py-4 shadow-sm ${styles.message}`}>
                         <div className="flex items-center justify-between gap-3 text-sm">
-                            <span className="text-zinc-500">Order #{orderId.slice(-6).toUpperCase()}</span>
+                            <span className="text-zinc-500">Order #{order._id.slice(-6).toUpperCase()}</span>
                             <span className="font-bold" style={{ color: accent }}>Paid</span>
                         </div>
-                        {typeof amount === 'number' && <p className="mt-2 border-t border-zinc-100 pt-2 text-left text-sm font-semibold">{formatCurrency(amount)} received</p>}
+                        <p className="mt-2 border-t border-zinc-100 pt-2 text-left text-sm font-semibold">{formatCurrency(amount)} received</p>
+                    </div>
+
+                    <div ref={billRef} className="mt-4 w-full max-w-sm rounded-[22px] border border-zinc-200 bg-white p-5 text-left text-sm text-zinc-900 shadow-sm">
+                        <div className="border-b border-dashed border-zinc-300 pb-4 text-center">
+                            <p className="text-lg font-extrabold uppercase tracking-wide">{restaurantName}</p>
+                            {restaurantAddress && <p className="mt-1 text-xs text-zinc-500">{restaurantAddress}</p>}
+                            {restaurantPhone && <p className="mt-1 text-xs text-zinc-500">Contact: {restaurantPhone}</p>}
+                            <p className="mt-1 font-semibold">PAID BILL</p>
+                            {fssaiNumber && <p className="mt-1 text-xs text-zinc-500">FSSAI: {fssaiNumber}</p>}
+                        </div>
+                        <div className="flex justify-between gap-3 border-b border-dashed border-zinc-300 py-3 text-xs text-zinc-600">
+                            <span>#{order._id.slice(-6).toUpperCase()}<br />{order.orderType === 'takeaway' ? 'Takeaway' : 'Dine in'}</span>
+                            <span className="text-right">{new Date(order.createdAt).toLocaleString()}<br />Payment received{order.paymentMethod ? ` via ${order.paymentMethod.toUpperCase()}` : ''}</span>
+                        </div>
+                        <div className="space-y-2 border-b border-dashed border-zinc-300 py-4">
+                            {order.items.map((item, index) => <div key={index} className="flex justify-between gap-3"><span>{item.quantity}× {item.name}</span><span className="shrink-0">{formatCurrency(item.price * item.quantity)}</span></div>)}
+                        </div>
+                        <div className="space-y-2 pt-4 text-xs">
+                            <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(order.total)}</span></div>
+                            {!!checkout?.discountAmount && <div className="flex justify-between"><span>Discount</span><span>−{formatCurrency(checkout.discountAmount)}</span></div>}
+                            {!!checkout?.gstAmount && <div className="flex justify-between"><span>GST</span><span>{formatCurrency(checkout.gstAmount)}</span></div>}
+                            {!!checkout?.sgstAmount && <div className="flex justify-between"><span>SGST</span><span>{formatCurrency(checkout.sgstAmount)}</span></div>}
+                            {!!checkout?.packagingCharge && <div className="flex justify-between"><span>Packaging</span><span>{formatCurrency(checkout.packagingCharge)}</span></div>}
+                            {!!checkout?.tipAmount && <div className="flex justify-between"><span>Tip</span><span>{formatCurrency(checkout.tipAmount)}</span></div>}
+                            <div className="flex justify-between border-t border-zinc-200 pt-3 text-base font-extrabold"><span>Paid total</span><span>{formatCurrency(amount)}</span></div>
+                        </div>
+                        <p className="mt-5 text-center text-xs text-zinc-500">Thank you for visiting {restaurantName}.</p>
                     </div>
                 </div>
 
                 <div className="grid w-full gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={onClose} autoFocus className="min-h-12 rounded-2xl px-5 py-3 text-sm font-bold transition active:scale-[0.98]" style={{ backgroundColor: accent, color: contrastTextColor(accent) }}>View your order</button>
+                    <button type="button" onClick={() => saveBill()} autoFocus className="min-h-12 rounded-2xl px-5 py-3 text-sm font-bold transition active:scale-[0.98]" style={{ backgroundColor: accent, color: contrastTextColor(accent) }}>Save your bill</button>
                     <Link href={menuHref} onClick={onClose} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold transition hover:bg-zinc-50">Back to menu <ArrowRightIcon className="h-4 w-4" /></Link>
                 </div>
+                <p className="mt-2 text-center text-xs text-zinc-500">Choose “Save as PDF” in the print dialog.</p>
                 <BrandFooter className="mt-8 pt-4" showDivider={false} />
             </div>
         </div>

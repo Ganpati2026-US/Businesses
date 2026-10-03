@@ -13,7 +13,7 @@ export default function DateFilter() {
     const periods = [
         { label: 'Today', value: 'today' },
         { label: 'Last 7 Days', value: 'week' },
-        { label: 'This Month', value: 'month' },
+        { label: 'Last 30 Days', value: 'month' },
         { label: 'This Year', value: 'year' },
     ];
 
