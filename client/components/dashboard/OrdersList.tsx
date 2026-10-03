@@ -69,30 +69,43 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
     const [filter, setFilter] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isBillModalOpen, setIsBillModalOpen] = useState(false);
-
     const socket = useSocket(restaurant._id);
+
+    useEffect(() => {
+        const focus = (id: string, isTakeaway: boolean) => {
+            setFilter(isTakeaway ? 'takeaway' : 'all');
+            requestAnimationFrame(() => requestAnimationFrame(() =>
+                document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            ));
+        };
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('focus');
+        if (id) focus(id, params.get('type') === 'takeaway');
+        const onFocus = (event: Event) => {
+            const { id, isTakeaway } = (event as CustomEvent<{ id: string; isTakeaway: boolean }>).detail;
+            focus(id, isTakeaway);
+        };
+        window.addEventListener('focus-new-order', onFocus);
+        return () => window.removeEventListener('focus-new-order', onFocus);
+    }, []);
 
     // Socket.IO listener for real-time updates (works when socket connects)
     useEffect(() => {
         if (!socket) return;
 
-        socket.on('new-order', (newOrder: Order) => {
-            console.log('New order received via socket:', newOrder);
-            setOrders(prev => [newOrder, ...prev]);
-            toast.success(newOrder.orderType === 'takeaway' ? 'New takeaway order!' : `New order from Table ${newOrder.tableId?.tableNumber}!`, { icon: '🔔' });
-
-            // Optional: Play sound
-            const audio = new Audio('/notification.mp3');
-            audio.play().catch(e => console.log('Audio play failed'));
-        });
-
-        socket.on('order-updated', (updatedOrder: Order) => {
+        const onNewOrder = (newOrder: Order) => {
+            setOrders(prev => prev.some(order => order._id === newOrder._id) ? prev : [newOrder, ...prev]);
+        };
+        const onOrderUpdated = (updatedOrder: Order) => {
             setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
-        });
+        };
+        socket.on('new-order', onNewOrder);
+
+        socket.on('order-updated', onOrderUpdated);
 
         return () => {
-            socket.off('new-order');
-            socket.off('order-updated');
+            socket.off('new-order', onNewOrder);
+            socket.off('order-updated', onOrderUpdated);
         };
     }, [socket]);
 
@@ -103,7 +116,7 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
             try {
                 const result = await getOrders();
                 if (result.success && result.data) {
-                    setOrders(result.data);
+                    setOrders(result.data as Order[]);
                 }
             } catch (err) {
                 console.error('[OrdersList] Polling error:', err);
@@ -196,6 +209,7 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
                     return (
                         <div
                             key={order._id}
+                            id={`order-${order._id}`}
                             className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden hover:shadow-md hover:shadow-slate-200/50 transition-all duration-300"
                         >
                             {/* Status Bar */}

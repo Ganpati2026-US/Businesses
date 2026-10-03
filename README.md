@@ -1,4 +1,4 @@
-# BitByte: Restaurant Digital Menu & Order Management System
+# Burghar
 
 BitByte is a modern, mobile-first web application designed for restaurant menu digitization and real-time order management. It allows customers to browse menus and place orders instantly by scanning QR codes, while providing restaurant owners with an intuitive dashboard to manage tables, menu items, incoming orders, and live analytics.
 

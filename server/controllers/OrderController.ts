@@ -83,13 +83,19 @@ export class OrderController {
         try {
             const orderData = req.body;
             const order = await OrderService.createOrder(orderData);
+            const createdOrder = order.toObject();
 
             // Broadcast real-time notification
             if ((global as any).io) {
+                try {
+                    await order.populate('tableId', 'tableNumber');
+                } catch (error) {
+                    console.error('Could not load table number for order notification:', error);
+                }
                 (global as any).io.to(`restaurant-${orderData.restaurantId}`).emit('new-order', order);
             }
 
-            res.status(201).json(order);
+            res.status(201).json(createdOrder);
         } catch (error: any) {
             console.error('Create order API error:', error);
             res.status(500).json({ error: error.message || 'Failed to place order' });
