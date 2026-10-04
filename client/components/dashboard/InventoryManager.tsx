@@ -48,6 +48,7 @@ export function InventoryManager({ initialItems, initialMovements }: { initialIt
     const inventoryValue = initialItems.reduce((sum, item) => sum + item.currentStock * item.costPerUnit, 0);
     const lowStock = initialItems.filter((item) => item.currentStock > 0 && item.currentStock <= item.reorderLevel);
     const outOfStock = initialItems.filter((item) => item.currentStock === 0);
+    const needsRestock = initialItems.filter((item) => item.currentStock <= item.reorderLevel);
     const filtered = useMemo(() => initialItems.filter((item) => {
         const matchesQuery = `${item.name} ${item.sku} ${item.category} ${item.supplier}`.toLowerCase().includes(query.toLowerCase());
         const matchesStock = stockFilter === 'all' || (stockFilter === 'out' ? item.currentStock === 0 : item.currentStock > 0 && item.currentStock <= item.reorderLevel);
@@ -71,6 +72,7 @@ export function InventoryManager({ initialItems, initialMovements }: { initialIt
         setSaving(false);
         if (!result.success) return toast.error(result.error || 'Could not save item');
         toast.success(editing ? 'Inventory item updated' : 'Inventory item added');
+        window.dispatchEvent(new Event('inventory-stock-changed'));
         setShowForm(false);
         router.refresh();
     };
@@ -85,6 +87,7 @@ export function InventoryManager({ initialItems, initialMovements }: { initialIt
         setSaving(false);
         if (!result.success) return toast.error(result.error || 'Could not adjust stock');
         toast.success('Stock updated');
+        window.dispatchEvent(new Event('inventory-stock-changed'));
         setAdjusting(null);
         setAdjustment({ type: 'purchase', quantity: '', note: '', unitCost: '' });
         router.refresh();
@@ -94,6 +97,7 @@ export function InventoryManager({ initialItems, initialMovements }: { initialIt
         const result = await archiveInventoryItem(item._id);
         if (!result.success) return toast.error(result.error || 'Could not archive item');
         toast.success('Inventory item archived');
+        window.dispatchEvent(new Event('inventory-stock-changed'));
         router.refresh();
     };
     const inputClass = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100';
@@ -114,6 +118,17 @@ export function InventoryManager({ initialItems, initialMovements }: { initialIt
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 {summaryCards.map((card) => <div key={card.label} className="rounded-2xl border border-slate-200/70 bg-white p-5"><div className={`inline-flex rounded-xl p-2 ${card.tone}`}><card.icon className="h-5 w-5" /></div><p className="mt-3 text-2xl font-bold text-slate-900">{card.value}</p><p className="text-xs text-slate-500">{card.label}</p></div>)}
             </div>
+
+            {needsRestock.length > 0 && (
+                <div role="alert" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                    <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
+                    <div>
+                        <p className="text-sm font-bold">Low stock alert</p>
+                        <p className="mt-1 text-sm">{needsRestock.slice(0, 6).map((item) => `${item.name}: ${item.currentStock} ${item.unit}`).join(' · ')}{needsRestock.length > 6 ? ` · and ${needsRestock.length - 6} more` : ''}</p>
+                        <p className="mt-1 text-xs text-amber-800">These items are at or below their reorder level.</p>
+                    </div>
+                </div>
+            )}
 
             {showForm && (
                 <section className="rounded-2xl border border-sky-200 bg-white p-5 shadow-sm">

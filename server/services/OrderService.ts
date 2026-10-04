@@ -1,66 +1,108 @@
 import Order, { IOrder } from '@/models/Order';
 import MenuItem from '@/models/MenuItem';
+import InventoryItem from '@/models/InventoryItem';
+import StockMovement from '@/models/StockMovement';
 import Table from '@/models/Table';
 import mongoose from 'mongoose';
+
+export class OrderInputError extends Error {}
 
 export class OrderService {
     /**
      * Create a new order ensure it's linked to a restaurant and table
      */
     static async createOrder(data: any): Promise<IOrder> {
+        if (!data || typeof data !== 'object') throw new OrderInputError('Invalid order details');
+        const customerName = typeof data.customerName === 'string' ? data.customerName.trim() : '';
+        const customerPhone = typeof data.customerPhone === 'string' ? data.customerPhone.trim() : '';
+        const notes = typeof data.notes === 'string' ? data.notes.trim() : '';
+        if (!customerName || /\p{N}/u.test(customerName)) throw new OrderInputError('Enter a name without numbers');
+        if (!/^\d{10}$/.test(customerPhone)) throw new OrderInputError('Enter exactly 10 digits for the phone number');
+        if (!/^[\p{L}\p{M}\s]*$/u.test(notes)) throw new OrderInputError('Kitchen requests can contain letters and spaces only');
         // Validate restaurantId and tableId are valid ObjectIds
         if (!data.restaurantId || !mongoose.Types.ObjectId.isValid(data.restaurantId)) {
-            throw new Error('Invalid restaurant ID');
+            throw new OrderInputError('Invalid restaurant ID');
         }
         if (!data.tableId || !mongoose.Types.ObjectId.isValid(data.tableId)) {
-            throw new Error('Invalid table ID');
+            throw new OrderInputError('Invalid table ID');
         }
+        if (!Array.isArray(data.items) || !data.items.length || data.items.some((item: any) =>
+            !mongoose.Types.ObjectId.isValid(item.menuItemId) || !Number.isInteger(item.quantity) || item.quantity < 1
+        )) throw new OrderInputError('Choose a valid quantity for every menu item');
 
-        const table = await Table.findOne({ _id: data.tableId, restaurantId: data.restaurantId, isActive: true });
-        if (!table) throw new Error('This ordering QR is unavailable');
+        const session = await mongoose.startSession();
+        let createdOrder: IOrder | null = null;
+        try {
+            await session.withTransaction(async () => {
+                const table = await Table.findOne({ _id: data.tableId, restaurantId: data.restaurantId, isActive: true }).session(session);
+                if (!table) throw new Error('This ordering QR is unavailable');
 
-        const menuItemIds = data.items.map((item: any) => item.menuItemId);
-        
-        // Strictly fetch items matching specified IDs AND belonging to this restaurant
-        const menuItems = await MenuItem.find({
-            _id: { $in: menuItemIds },
-            restaurantId: data.restaurantId
-        });
+                const menuItems = await MenuItem.find({
+                    _id: { $in: data.items.map((item: any) => item.menuItemId) },
+                    restaurantId: data.restaurantId,
+                    isAvailable: true,
+                }).session(session);
+                const byId = new Map(menuItems.map((item) => [String(item._id), item]));
+                const required = new Map<string, number>();
+                let calculatedTotal = 0;
+                const orderItems = data.items.map((item: any) => {
+                    const dbItem = byId.get(String(item.menuItemId));
+                    if (!dbItem) throw new Error('A menu item is unavailable. Please refresh the menu.');
+                    calculatedTotal += dbItem.price * item.quantity;
+                    for (const part of dbItem.recipe || []) {
+                        const id = String(part.inventoryItemId);
+                        required.set(id, (required.get(id) || 0) + part.quantity * item.quantity);
+                    }
+                    return {
+                        menuItemId: dbItem._id,
+                        quantity: item.quantity,
+                        price: dbItem.price,
+                        name: dbItem.name,
+                        dietaryType: dbItem.dietaryType || 'unknown',
+                        itemType: dbItem.itemType || 'food',
+                    };
+                });
 
-        let calculatedTotal = 0;
-        data.items = data.items.map((item: any) => {
-            const dbItem = menuItems.find((m) => m._id.toString() === item.menuItemId.toString());
-            
-            // Reject the order if the menu item doesn't exist or is not available for this restaurant
-            if (!dbItem) {
-                throw new Error(`Menu item ${item.name || item.menuItemId} is invalid or not available at this restaurant.`);
-            }
+                const [order] = await Order.create([{
+                    restaurantId: data.restaurantId,
+                    tableId: data.tableId,
+                    orderType: table.isTakeaway ? 'takeaway' : 'dine-in',
+                    items: orderItems,
+                    total: calculatedTotal,
+                    status: 'pending',
+                    paymentStatus: 'pending',
+                    sessionId: data.sessionId,
+                    customerName,
+                    customerPhone,
+                    notes,
+                }], { session });
 
-            const price = dbItem.price;
-            calculatedTotal += price * item.quantity;
-            return {
-                ...item,
-                price, // Overwrite/enforce database price
-                name: dbItem.name,
-                dietaryType: dbItem.dietaryType || 'unknown',
-                itemType: dbItem.itemType || 'food',
-            };
-        });
-
-        const order = new Order({
-            restaurantId: data.restaurantId,
-            tableId: data.tableId,
-            orderType: table.isTakeaway ? 'takeaway' : 'dine-in',
-            items: data.items,
-            total: calculatedTotal,
-            status: 'pending',
-            paymentStatus: 'pending',
-            sessionId: data.sessionId,
-            customerName: data.customerName,
-            customerPhone: data.customerPhone,
-            notes: data.notes,
-        });
-        return order.save();
+                const usage = [];
+                for (const [inventoryItemId, rawQuantity] of [...required].sort(([a], [b]) => a.localeCompare(b))) {
+                    const quantity = Math.round(rawQuantity * 10000) / 10000;
+                    const before = await InventoryItem.findOneAndUpdate(
+                        { _id: inventoryItemId, restaurantId: data.restaurantId, isActive: true, currentStock: { $gte: quantity } },
+                        { $inc: { currentStock: -quantity } },
+                        { session },
+                    );
+                    if (!before) throw new Error('An ingredient is unavailable or has insufficient stock. Please contact the restaurant.');
+                    usage.push({ inventoryItemId: before._id, quantity, unitCost: before.costPerUnit });
+                    await StockMovement.create([{
+                        restaurantId: data.restaurantId, inventoryItemId: before._id, orderId: order._id,
+                        type: 'usage', quantity: -quantity, stockBefore: before.currentStock,
+                        stockAfter: Math.round((before.currentStock - quantity) * 10000) / 10000,
+                        unitCost: before.costPerUnit, note: `Order ${order._id}`,
+                    }], { session });
+                }
+                order.inventoryUsage = usage;
+                await order.save({ session });
+                createdOrder = order;
+            });
+            if (!createdOrder) throw new Error('Could not save order');
+            return createdOrder;
+        } finally {
+            await session.endSession();
+        }
     }
 
     /**
@@ -118,11 +160,39 @@ export class OrderService {
         if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(restaurantId)) {
             return null;
         }
-        return Order.findOneAndUpdate(
-            { _id: orderId, restaurantId },
-            { status },
-            { new: true }
-        );
+        const session = await mongoose.startSession();
+        let updatedOrder: IOrder | null = null;
+        try {
+            await session.withTransaction(async () => {
+                const order = await Order.findOne({ _id: orderId, restaurantId })
+                    .select('+inventoryUsage +inventoryRestored').session(session);
+                if (!order) return;
+                if (order.status === 'cancelled' && status !== 'cancelled') throw new Error('Cancelled orders cannot be reopened');
+                if (status === 'cancelled' && order.status !== 'cancelled' && !order.inventoryRestored) {
+                    for (const part of order.inventoryUsage || []) {
+                        const before = await InventoryItem.findOneAndUpdate(
+                            { _id: part.inventoryItemId, restaurantId },
+                            { $inc: { currentStock: part.quantity } },
+                            { session },
+                        );
+                        if (!before) throw new Error('Could not restore order inventory');
+                        await StockMovement.create([{
+                            restaurantId, inventoryItemId: part.inventoryItemId, orderId: order._id,
+                            type: 'return', quantity: part.quantity, stockBefore: before.currentStock,
+                            stockAfter: Math.round((before.currentStock + part.quantity) * 10000) / 10000,
+                            unitCost: part.unitCost, note: `Cancelled order ${order._id}`,
+                        }], { session });
+                    }
+                    order.inventoryRestored = true;
+                }
+                order.status = status;
+                await order.save({ session });
+                updatedOrder = order;
+            });
+            return updatedOrder;
+        } finally {
+            await session.endSession();
+        }
     }
 
     /**

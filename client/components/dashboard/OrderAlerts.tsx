@@ -263,7 +263,7 @@ export default function OrderAlerts({ restaurantId, baselineTime }: { restaurant
         if (next) await playPreview();
     };
 
-    if (!restaurantId) return null;
+    if (!restaurantId || pathname !== '/dashboard/orders') return null;
     return (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 via-white to-amber-50 px-4 py-3">
             <div className="flex items-center gap-3">

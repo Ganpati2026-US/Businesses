@@ -19,12 +19,16 @@ interface MenuItem {
     isAvailable: boolean;
     dietaryType?: 'veg' | 'non-veg' | 'vegan' | 'egg' | 'unknown';
     itemType?: 'food' | 'beverage' | 'water' | 'other';
+    recipe?: { inventoryItemId: string; quantity: number }[];
 }
 
-export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] }) {
+interface InventoryOption { _id: string; name: string; unit: string; currentStock: number }
+
+export function MenuList({ initialMenuItems, inventoryItems }: { initialMenuItems: MenuItem[]; inventoryItems: InventoryOption[] }) {
     const [showAddForm, setShowAddForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [recipe, setRecipe] = useState<{ inventoryItemId: string; quantity: number }[]>([]);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -122,6 +126,7 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                     imageUrl: finalImageUrl,
                     aestheticImageUrl: finalAestheticImageUrl,
                     price: parseFloat(formData.price),
+                    recipe,
                 });
             } else {
                 result = await createMenuItem({
@@ -129,12 +134,14 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                     imageUrl: finalImageUrl,
                     aestheticImageUrl: finalAestheticImageUrl,
                     price: parseFloat(formData.price),
+                    recipe,
                 });
             }
 
             if (result.success) {
                 toast.success(editingId ? 'Menu item updated successfully!' : 'Menu item added successfully!');
                 setFormData({ name: '', description: '', price: '', category: '', imageUrl: '', aestheticImageUrl: '', dietaryType: 'unknown', itemType: 'food' });
+                setRecipe([]);
                 setSelectedFile(null);
                 setImagePreview(null);
                 setSelectedAestheticFile(null);
@@ -154,6 +161,7 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
 
     const handleEdit = (item: MenuItem) => {
         setEditingId(item._id);
+        setRecipe(item.recipe || []);
         setFormData({
             name: item.name,
             description: item.description,
@@ -257,6 +265,7 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                     onClick={() => {
                         if (showAddForm && editingId) {
                             setEditingId(null);
+                            setRecipe([]);
                             setFormData({ name: '', description: '', price: '', category: '', imageUrl: '', aestheticImageUrl: '', dietaryType: 'unknown', itemType: 'food' });
                             setImagePreview(null);
                             setSelectedFile(null);
@@ -266,6 +275,7 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                             setShowAddForm(!showAddForm);
                             if (!showAddForm) {
                                 setEditingId(null);
+                                setRecipe([]);
                                 setFormData({ name: '', description: '', price: '', category: '', imageUrl: '', aestheticImageUrl: '', dietaryType: 'unknown', itemType: 'food' });
                                 setImagePreview(null);
                                 setSelectedFile(null);
@@ -361,6 +371,30 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                             </div>
                         </div>
 
+                        <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
+                            <h3 className="text-sm font-semibold text-gray-900">Inventory used per item</h3>
+                            <p className="mt-1 text-xs text-gray-500">Enter the amount used to make one serving. Orders multiply these amounts by the quantity ordered.</p>
+                            <div className="mt-3 space-y-2">
+                                {recipe.map((entry, index) => {
+                                    const stock = inventoryItems.find((item) => item._id === entry.inventoryItemId);
+                                    return (
+                                        <div key={`${entry.inventoryItemId}-${index}`} className="flex flex-wrap items-center gap-2">
+                                            <select aria-label="Inventory item" required value={entry.inventoryItemId} onChange={(event) => setRecipe(recipe.map((part, partIndex) => partIndex === index ? { ...part, inventoryItemId: event.target.value } : part))} className="min-w-44 flex-1 rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-gray-900">
+                                                <option value="">Select inventory item</option>
+                                                {!stock && entry.inventoryItemId && <option value={entry.inventoryItemId}>Archived inventory item</option>}
+                                                {inventoryItems.map((item) => <option key={item._id} value={item._id} disabled={recipe.some((part, partIndex) => partIndex !== index && part.inventoryItemId === item._id)}>{item.name} ({item.unit})</option>)}
+                                            </select>
+                                            <input aria-label={`Quantity per order in ${stock?.unit || 'stock units'}`} type="number" min="0.0001" step="0.0001" required value={entry.quantity || ''} onChange={(event) => setRecipe(recipe.map((part, partIndex) => partIndex === index ? { ...part, quantity: Number(event.target.value) } : part))} className="w-28 rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-gray-900" />
+                                            <span className="w-12 text-xs text-gray-600">{stock?.unit || ''}</span>
+                                            <button type="button" aria-label="Remove inventory item" onClick={() => setRecipe(recipe.filter((_, partIndex) => partIndex !== index))} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><TrashIcon className="h-4 w-4" /></button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <button type="button" disabled={recipe.length >= inventoryItems.length} onClick={() => setRecipe([...recipe, { inventoryItemId: '', quantity: 0 }])} className="mt-3 text-sm font-semibold text-sky-700 disabled:opacity-50">+ Add inventory item</button>
+                            {!inventoryItems.length && <p className="mt-2 text-xs text-gray-500">Add stock items in Inventory first.</p>}
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">
                                 Item Image
@@ -412,6 +446,7 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                                 variant="ghost"
                                 onClick={() => {
                                     setFormData({ name: '', description: '', price: '', category: '', imageUrl: '', aestheticImageUrl: '', dietaryType: 'unknown', itemType: 'food' });
+                                    setRecipe([]);
                                     setSelectedFile(null);
                                     setImagePreview(null);
                                     setSelectedAestheticFile(null);
@@ -471,6 +506,11 @@ export function MenuList({ initialMenuItems }: { initialMenuItems: MenuItem[] })
                                                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-600">{item.dietaryType === 'non-veg' ? 'Non-Veg' : item.dietaryType || 'Unknown'}</span>
                                                 <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold capitalize text-sky-700">{item.itemType || 'food'}</span>
                                             </div>
+                                            {!!item.recipe?.length && <p className="pt-1 text-xs text-slate-500">Inventory per item: {item.recipe.map((part) => {
+                                                const stock = inventoryItems.find((entry) => entry._id === part.inventoryItemId);
+                                                return `${part.quantity} ${stock?.unit || ''} ${stock?.name || 'archived item'}`;
+                                            }).join(' · ')}</p>}
+                                            {!item.recipe?.length && <p className="pt-1 text-xs text-amber-700">Inventory not linked</p>}
                                         </div>
                                     </div>
 

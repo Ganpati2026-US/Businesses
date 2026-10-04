@@ -38,6 +38,8 @@ export interface IOrder extends Document {
     tableId: mongoose.Types.ObjectId;
     orderType: 'dine-in' | 'takeaway';
     items: IOrderItem[];
+    inventoryUsage: { inventoryItemId: mongoose.Types.ObjectId; quantity: number; unitCost: number }[];
+    inventoryRestored: boolean;
     total: number;
     status: OrderStatus;
     sessionId: string;
@@ -112,6 +114,16 @@ const orderSchema = new Schema<IOrder>(
                 message: 'Order must have at least one item',
             },
         },
+        inventoryUsage: {
+            type: [{
+                inventoryItemId: { type: Schema.Types.ObjectId, ref: 'InventoryItem', required: true },
+                quantity: { type: Number, required: true, min: 0 },
+                unitCost: { type: Number, required: true, min: 0 },
+            }],
+            default: [],
+            select: false,
+        },
+        inventoryRestored: { type: Boolean, default: false, select: false },
         total: {
             type: Number,
             required: true,

@@ -118,13 +118,29 @@ export function CustomerMenu({
 
     // Normalize category names to Title Case for casing consistency
     const titleCase = (str: string) => str.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+    const menuCategory = (value: string) => {
+        const category = titleCase(value || 'Other');
+        const key = category.toLowerCase();
+        if (['starter', 'starters', 'appetizer', 'appetizers'].includes(key)) return 'Starter';
+        if (['main', 'mains', 'main course', 'main courses'].includes(key)) return 'Main Course';
+        if (['chapati', 'chapatis', 'roti', 'rotis', 'bread', 'breads', 'indian breads'].includes(key)) return 'Breads';
+        if (['drink', 'drinks', 'beverage', 'beverages'].includes(key)) return 'Drinks';
+        return category;
+    };
+    const categoryOrder = ['Starter', 'Main Course', 'Breads', 'Drinks'];
 
     const normalizedMenuItems = menuItems.map(item => ({
         ...item,
-        category: titleCase(item.category || 'Other')
+        category: menuCategory(item.category)
     }));
 
-    const categories = ['all', ...Array.from(new Set(normalizedMenuItems.map((item) => item.category)))];
+    const categories = ['all', ...Array.from(new Set(normalizedMenuItems.map((item) => item.category)))
+        .sort((a, b) => {
+            const aIndex = categoryOrder.indexOf(a);
+            const bIndex = categoryOrder.indexOf(b);
+            if (aIndex !== -1 || bIndex !== -1) return (aIndex === -1 ? Infinity : aIndex) - (bIndex === -1 ? Infinity : bIndex);
+            return a.localeCompare(b);
+        })];
 
     const filteredItems = normalizedMenuItems.filter((item) =>
         (selectedCategory === 'all' || item.category === selectedCategory) &&
@@ -249,15 +265,7 @@ export function CustomerMenu({
                     <div className="mt-4 sm:mt-5"><OfferCarousel accent={accent} dark={scheme === 'dark'} takeaway={table.isTakeaway} /></div>
 
                     <section id="menu" className="scroll-mt-24 pt-10 sm:pt-14">
-                        <div className="flex items-end justify-between gap-3">
-                            <div>
-                                <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: accent }}><SparklesIcon className="h-4 w-4" /> Explore the flavours</p>
-                                <h2 className="mt-2 font-serif text-4xl leading-none tracking-tight sm:text-5xl">The menu<span style={{ color: accent }}>.</span></h2>
-                            </div>
-                            <p className="pb-1 text-xs font-medium" style={{ color: t.subtext }}>{normalizedMenuItems.length} dishes</p>
-                        </div>
-                        <p className="mt-3 max-w-lg text-sm leading-relaxed" style={{ color: t.subtext }}>{table.isTakeaway ? 'Thoughtfully prepared and ready for pickup. Choose what you love.' : 'Thoughtfully prepared for your table. Take your time choosing.'}</p>
-                        {table.isTakeaway && Number(restaurant.packagingCharge) > 0 && <p className="mt-2 text-xs font-medium" style={{ color: t.subtext }}>Packaging: {formatCurrency(Number(restaurant.packagingCharge))} per order, added at checkout.</p>}
+                        <h2 className="font-serif text-4xl leading-none tracking-tight sm:text-5xl">Menu<span style={{ color: accent }}>.</span></h2>
 
                         <label className="mt-6 flex min-h-12 items-center gap-3 rounded-2xl border px-4 shadow-sm transition focus-within:ring-2" style={{ backgroundColor: t.cardBg, borderColor: t.border, outlineColor: accent }}>
                             <MagnifyingGlassIcon className="h-5 w-5 shrink-0" style={{ color: t.subtext }} />
@@ -270,7 +278,7 @@ export function CustomerMenu({
                                 <button key={category} type="button" onClick={() => setSelectedCategory(category)} aria-pressed={selectedCategory === category} className="min-h-11 shrink-0 snap-start rounded-full border px-5 text-sm font-semibold transition active:scale-95" style={selectedCategory === category
                                     ? { backgroundColor: accent, borderColor: accent, color: accentText }
                                     : { backgroundColor: t.cardBg, borderColor: t.border, color: t.text }}>
-                                    {category === 'all' ? 'All dishes' : category}
+                                    {category === 'all' ? 'All' : category}
                                 </button>
                             ))}
                         </div>

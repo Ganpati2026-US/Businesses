@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button';
 import { updateOrderStatus, getOrders, updatePaymentStatus } from '@/app/actions/order';
 import { toast } from 'react-hot-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { PrinterIcon, CheckCircleIcon, BanknotesIcon, ClipboardDocumentListIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { PrinterIcon, CheckCircleIcon, BanknotesIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import BillModal from '@/components/dashboard/BillModal';
 import KotModal from '@/components/dashboard/KotModal';
 
@@ -23,6 +23,7 @@ interface Order {
     paymentStatus?: 'pending' | 'paid';
     paymentMethod?: 'upi' | 'cash';
     orderType?: 'dine-in' | 'takeaway';
+    source?: 'swiggy' | 'zomato' | 'porter';
     checkout?: { payableAmount: number; discountAmount: number; tipAmount: number };
     review?: { foodRating?: number; experienceRating?: number; preparationRating?: number; packagingRating?: number; comment?: string };
     restaurantId: string;
@@ -62,28 +63,16 @@ const FILTER_TABS = [
     { key: 'served', label: 'Served' },
     { key: 'unpaid', label: 'Unpaid' },
     { key: 'completed', label: 'Completed' },
+    { key: 'swiggy', label: 'Swiggy' },
+    { key: 'zomato', label: 'Zomato' },
+    { key: 'porter', label: 'Porter' },
 ];
 
-const ORDER_INTEGRATIONS = [
-    {
-        name: 'Swiggy',
-        purpose: 'Automatically receive and manage Swiggy food orders.',
-        href: 'https://developers.swiggy.com/',
-        linkLabel: 'Partner access',
-    },
-    {
-        name: 'Zomato',
-        purpose: 'Automatically receive and manage Zomato food orders.',
-        href: 'https://www.zomato.com/developer/integration/docs/overview/',
-        linkLabel: 'POS integration',
-    },
-    {
-        name: 'Porter',
-        purpose: 'Book a delivery rider and track the trip from an order.',
-        href: 'https://porter.in/api-integrations',
-        linkLabel: 'Delivery API access',
-    },
-] as const;
+const INTEGRATION_LABELS: Record<string, string> = {
+    swiggy: 'Swiggy',
+    zomato: 'Zomato',
+    porter: 'Porter',
+};
 
 const isCompletedUnpaid = (order: Order) => order.status === 'completed' && order.paymentStatus !== 'paid';
 const isActiveTakeaway = (order: Order) => order.orderType === 'takeaway' && order.paymentStatus !== 'paid' && order.status !== 'cancelled';
@@ -124,7 +113,12 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
             setOrders(prev => prev.some(order => order._id === newOrder._id) ? prev : [newOrder, ...prev]);
         };
         const onOrderUpdated = (updatedOrder: Order) => {
-            setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
+            setOrders(prev => prev.map(o => {
+                if (o._id !== updatedOrder._id) return o;
+                const tableId = updatedOrder.tableId && typeof updatedOrder.tableId === 'object' && updatedOrder.tableId.tableNumber
+                    ? updatedOrder.tableId : o.tableId;
+                return { ...updatedOrder, tableId };
+            }));
         };
         socket.on('new-order', onNewOrder);
 
@@ -197,6 +191,7 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
     const unpaidCount = orders.filter((order) => order.orderType !== 'takeaway' && isCompletedUnpaid(order)).length;
     const takeawayCount = orders.filter(isActiveTakeaway).length;
     const filteredOrders = orders.filter((order) => {
+        if (filter in INTEGRATION_LABELS) return order.source === filter;
         if (filter === 'takeaway') return isActiveTakeaway(order);
         if (filter === 'completed' && order.orderType === 'takeaway') {
             return order.status === 'completed' && order.paymentStatus === 'paid';
@@ -211,31 +206,6 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
 
     return (
         <div className="space-y-5">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="order-integrations-title">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h2 id="order-integrations-title" className="text-base font-bold text-slate-900">Order and delivery integrations</h2>
-                        <p className="mt-1 text-sm text-slate-600">Swiggy and Zomato orders will appear here after partner connection. Porter will handle delivery bookings from eligible orders.</p>
-                    </div>
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">Setup required</span>
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    {ORDER_INTEGRATIONS.map((integration) => (
-                        <div key={integration.name} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                            <div className="flex items-center justify-between gap-2">
-                                <h3 className="font-bold text-slate-900">{integration.name}</h3>
-                                <span className="text-[11px] font-semibold text-slate-500">Not connected</span>
-                            </div>
-                            <p className="mt-2 min-h-10 text-xs leading-relaxed text-slate-600">{integration.purpose}</p>
-                            <a href={integration.href} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900">
-                                {integration.linkLabel} <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-                            </a>
-                        </div>
-                    ))}
-                </div>
-                <p className="mt-4 text-xs text-slate-500">Live syncing and rider booking begin after API access is approved and connected. Porter also needs the customer’s delivery address.</p>
-            </section>
-
             {/* Filter Tabs */}
             <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200/60 bg-white p-1.5">
                 {FILTER_TABS.map((tab) => (
@@ -411,9 +381,9 @@ export function OrdersList({ initialOrders, restaurant }: { initialOrders: Order
             {filteredOrders.length === 0 && (
                 <div className="text-center py-16 bg-white border border-slate-200/60 rounded-2xl">
                     <ClipboardDocumentListIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <h3 className="text-sm font-semibold text-slate-900">{filter === 'unpaid' ? 'No completed unpaid orders' : filter === 'takeaway' ? 'No unpaid takeaway orders' : 'No orders found'}</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">{filter in INTEGRATION_LABELS ? `No ${INTEGRATION_LABELS[filter]} orders yet` : filter === 'unpaid' ? 'No completed unpaid orders' : filter === 'takeaway' ? 'No unpaid takeaway orders' : 'No orders found'}</h3>
                     <p className="text-slate-400 mt-1 text-sm">
-                        {filter === 'unpaid' ? 'Completed orders awaiting payment will appear here.' : filter === 'takeaway' ? 'Paid takeaway orders move to Completed.' : 'Orders will appear here once customers place them.'}
+                        {filter in INTEGRATION_LABELS ? `${INTEGRATION_LABELS[filter]} orders will appear here once connected.` : filter === 'unpaid' ? 'Completed orders awaiting payment will appear here.' : filter === 'takeaway' ? 'Paid takeaway orders move to Completed.' : 'Orders will appear here once customers place them.'}
                     </p>
                 </div>
             )}

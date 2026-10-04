@@ -5,6 +5,7 @@ export type StockMovementType = 'opening' | 'purchase' | 'usage' | 'wastage' | '
 export interface IStockMovement extends Document {
     restaurantId: mongoose.Types.ObjectId;
     inventoryItemId: mongoose.Types.ObjectId;
+    orderId?: mongoose.Types.ObjectId;
     type: StockMovementType;
     quantity: number;
     stockBefore: number;
@@ -18,6 +19,7 @@ export interface IStockMovement extends Document {
 const stockMovementSchema = new Schema<IStockMovement>({
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     inventoryItemId: { type: Schema.Types.ObjectId, ref: 'InventoryItem', required: true },
+    orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
     type: { type: String, enum: ['opening', 'purchase', 'usage', 'wastage', 'correction', 'return'], required: true },
     quantity: { type: Number, required: true },
     stockBefore: { type: Number, required: true, min: 0 },

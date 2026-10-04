@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import dbConnect from '@/lib/db';
 import MenuItem from '@/models/MenuItem';
+import InventoryItem from '@/models/InventoryItem';
 import { MenuList } from '@/components/dashboard/MenuList';
 
 export default async function MenuPage() {
@@ -13,12 +14,13 @@ export default async function MenuPage() {
 
     await dbConnect();
 
-    const menuItems = await MenuItem.find({
-        restaurantId: session.user.restaurantId,
-    })
-        .select('-imageUrl -aestheticImageUrl')
-        .sort({ category: 1, createdAt: -1 })
-        .lean();
+    const [menuItems, inventoryItems] = await Promise.all([
+        MenuItem.find({ restaurantId: session.user.restaurantId })
+            .select('-imageUrl -aestheticImageUrl')
+            .sort({ category: 1, createdAt: -1 }).lean(),
+        InventoryItem.find({ restaurantId: session.user.restaurantId, isActive: true })
+            .select('name unit currentStock').sort({ name: 1 }).lean(),
+    ]);
 
     return (
         <div className="space-y-6">
@@ -31,7 +33,7 @@ export default async function MenuPage() {
                 </p>
             </div>
 
-            <MenuList initialMenuItems={JSON.parse(JSON.stringify(menuItems))} />
+            <MenuList initialMenuItems={JSON.parse(JSON.stringify(menuItems))} inventoryItems={JSON.parse(JSON.stringify(inventoryItems))} />
         </div>
     );
 }

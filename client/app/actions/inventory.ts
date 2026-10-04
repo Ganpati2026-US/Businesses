@@ -29,6 +29,25 @@ async function restaurantContext() {
     return { restaurantId: session.user.restaurantId };
 }
 
+export async function getLowStockItems() {
+    try {
+        const { restaurantId } = await restaurantContext();
+        const items = await InventoryItem.find({
+            restaurantId,
+            isActive: true,
+            $expr: { $lte: ['$currentStock', '$reorderLevel'] },
+        }).select('name unit currentStock reorderLevel').sort({ currentStock: 1, name: 1 }).lean();
+        return { success: true as const, items: JSON.parse(JSON.stringify(items)) as {
+            _id: string; name: string; unit: string; currentStock: number; reorderLevel: number;
+        }[] };
+    } catch (error) {
+        console.error('Get low stock items error:', error);
+        return { success: false as const, items: [] as {
+            _id: string; name: string; unit: string; currentStock: number; reorderLevel: number;
+        }[] };
+    }
+}
+
 function validateInput(data: InventoryInput, creating: boolean) {
     if (!data.name?.trim()) return 'Item name is required';
     if (!INVENTORY_UNITS.includes(data.unit as any)) return 'Choose a valid unit';

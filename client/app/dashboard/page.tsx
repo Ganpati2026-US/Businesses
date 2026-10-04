@@ -7,6 +7,7 @@ import MenuItem from '@/models/MenuItem';
 import Table from '@/models/Table';
 import mongoose from 'mongoose';
 import Link from 'next/link';
+import DashboardGreeting from '@/components/dashboard/DashboardGreeting';
 import {
     ShoppingBagIcon,
     CurrencyDollarIcon,
@@ -112,9 +113,7 @@ export default async function DashboardPage() {
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                     Dashboard
                 </h1>
-                <p className="text-slate-500 mt-1 text-sm">
-                    Welcome back! Here&apos;s an overview of your restaurant.
-                </p>
+                <DashboardGreeting />
             </div>
 
             {/* Stats Grid */}

@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import OrderAlerts from '@/components/dashboard/OrderAlerts';
+import LowStockAlerts from '@/components/dashboard/LowStockAlerts';
 import { BrandFooter } from '@/components/BrandFooter';
 
 export default async function DashboardLayout({
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
                 <div className="flex min-h-full flex-col">
                     <div className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
                         <OrderAlerts restaurantId={session.user.restaurantId ? String(session.user.restaurantId) : undefined} baselineTime={Date.now()} />
+                        <LowStockAlerts restaurantId={session.user.restaurantId ? String(session.user.restaurantId) : undefined} />
                         {children}
                     </div>
                     <BrandFooter className="flex h-24 w-full shrink-0 flex-col justify-center px-6" borderColor="#e2e8f0" />

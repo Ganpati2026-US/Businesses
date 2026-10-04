@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { signInAction } from '@/app/actions/auth';
 import toast, { Toaster } from 'react-hot-toast';
 import { BrandFooter } from '@/components/BrandFooter';
+import { BoltIcon, BookOpenIcon, BuildingStorefrontIcon, QrCodeIcon } from '@heroicons/react/24/outline';
 import { DivineTransition } from '@/components/DivineTransition';
 
 export default function SignInPage() {
@@ -56,7 +57,7 @@ export default function SignInPage() {
                 {/* Branding & Marketing Headline */}
                 <div className="relative z-10 space-y-6">
                     <div className="flex items-center gap-2">
-                        <span className="text-3xl lg:text-4xl font-black text-indigo-600 tracking-tight">BitByte</span>
+                        <span className="text-3xl lg:text-4xl font-black text-indigo-600 tracking-tight">BitByte<sup className="ml-0.5 text-[0.4em] align-super">®</sup></span>
                     </div>
                     <div className="space-y-3">
                         <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight text-zinc-900">
@@ -71,10 +72,7 @@ export default function SignInPage() {
                     {/* Item 1 */}
                     <div className="flex items-center gap-4 p-4.5 bg-white/95 border border-zinc-200/50 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] backdrop-blur-sm transition-transform duration-200 hover:scale-[1.01]">
                         <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M17 14v2m-3-3h6m-3 3h3m-6 0v3.75M14 20h3.75M16.5 16.5h.008v.008h-.008v-.008z" />
-                            </svg>
+                            <QrCodeIcon className="h-5 w-5" strokeWidth={2.2} />
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-zinc-900">Scan QR</h4>
@@ -85,9 +83,7 @@ export default function SignInPage() {
                     {/* Item 2 */}
                     <div className="flex items-center gap-4 p-4.5 bg-white/95 border border-zinc-200/50 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] backdrop-blur-sm transition-transform duration-200 hover:scale-[1.01]">
                         <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                            </svg>
+                            <BookOpenIcon className="h-5 w-5" strokeWidth={2.2} />
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-zinc-900">Browse Menu</h4>
@@ -98,9 +94,7 @@ export default function SignInPage() {
                     {/* Item 3 */}
                     <div className="flex items-center gap-4 p-4.5 bg-white/95 border border-zinc-200/50 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] backdrop-blur-sm transition-transform duration-200 hover:scale-[1.01]">
                         <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.61 3.51a14.993 14.993 0 0 0-6.16 12.12 14.98 14.98 0 0 0 12.14 8.74v-4.8m5.84-2.58c-1.2.9-2.73 1.44-4.38 1.44s-3.18-.54-4.38-1.44" />
-                            </svg>
+                            <BoltIcon className="h-5 w-5" strokeWidth={2.2} />
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-zinc-900">Quick Delivery</h4>
@@ -130,6 +124,7 @@ export default function SignInPage() {
                 <div className="w-full max-w-[420px] mx-auto space-y-6">
                     {/* Header */}
                     <div>
+                        <p className="mb-4 text-2xl font-black tracking-tight text-indigo-600 md:hidden">BitByte<sup className="ml-0.5 text-[0.4em] align-super">®</sup></p>
                         <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900">Welcome back</h2>
                         <p className="text-zinc-500 text-sm mt-1.5 leading-relaxed">
                             {loginArea === 'owner' ? 'Sign in to manage your BitByte subscription and renewals.' : 'Sign in to your BitByte account to manage your operations.'}
@@ -144,9 +139,7 @@ export default function SignInPage() {
                     {/* Workspace Indicator Card */}
                     <div className="flex items-center gap-3.5 p-4 bg-indigo-50/50 border border-indigo-100/60 rounded-2xl">
                         <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl shrink-0">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06 1.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.5a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-3.5a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
-                            </svg>
+                            <BuildingStorefrontIcon className="h-5 w-5" strokeWidth={2.2} />
                         </div>
                         <div>
                             <h4 className="text-xs font-bold text-zinc-900">{loginArea === 'owner' ? 'Owner subscription' : 'Restaurant Dashboard'}</h4>

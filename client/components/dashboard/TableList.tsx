@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { createTable, createTables, deleteTable } from '@/app/actions/table';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, TrashIcon, QrCodeIcon, ArrowTopRightOnSquareIcon, ClipboardDocumentIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, QrCodeIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 
 interface Table {
@@ -16,6 +16,15 @@ interface Table {
     qrCodeDataUrl?: string;
     isActive: boolean;
     isTakeaway?: boolean;
+}
+
+function tableColors(index: number) {
+    const hue = (205 + index * 137.508) % 360;
+    return {
+        accent: `hsl(${hue} 65% 34%)`,
+        border: `hsl(${hue} 65% 78%)`,
+        tint: `hsl(${hue} 75% 96%)`,
+    };
 }
 
 export function TableList({ initialTables, restaurantId }: { initialTables: Table[]; restaurantId: string }) {
@@ -126,32 +135,41 @@ export function TableList({ initialTables, restaurantId }: { initialTables: Tabl
     return (
         <div className="space-y-8">
             {takeawayTable && (
-                <section className="overflow-hidden rounded-[28px] border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-5 shadow-sm sm:p-7">
-                    <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
-                        <div>
-                            <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-violet-700"><ShoppingBagIcon className="h-4 w-4" /> Takeaway ordering</div>
-                            <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-gray-900">A menu ready to go.</h2>
-                            <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-600">Put this QR at your counter or on takeaway packaging. Guests see your same menu, order and track pickup from their phones. Their orders appear in the Takeaway category, separate from table orders.</p>
-                            <a href="/dashboard/profile" className="mt-2 inline-block text-xs font-semibold text-violet-700 hover:underline">Set packaging charge in Profile →</a>
-                            <div className="mt-5 flex flex-wrap gap-2">
-                                <Button onClick={() => takeawayQR && handleDownloadQR(takeawayQR, 'takeaway')} disabled={!takeawayQR} className="gap-2 bg-violet-600 text-white hover:bg-violet-700"><QrCodeIcon className="h-4 w-4" /> Download QR</Button>
-                                <a href={takeawayPath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50"><ArrowTopRightOnSquareIcon className="h-4 w-4" /> Open takeaway menu</a>
-                                <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(takeawayUrl); toast.success('Takeaway link copied'); }} disabled={!takeawayQR} className="gap-2 border-violet-200 text-violet-700"><ClipboardDocumentIcon className="h-4 w-4" /> Copy link</Button>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <section className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-lg">
+                        <div className="mb-6">
+                            <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500">Takeaway</h2>
+                            <p className="mt-1 font-display text-3xl font-bold text-gray-900">QR Code</p>
+                        </div>
+                        {takeawayQR ? (
+                            <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 transition-colors group-hover:border-sky-100 group-hover:bg-sky-50">
+                                <div className="rounded-lg border border-gray-100 bg-white p-2 shadow-sm">
+                                    <Image src={takeawayQR} alt="Takeaway ordering QR code" width={120} height={120} className="rounded-md" unoptimized />
+                                </div>
+                                <Button size="sm" variant="outline" onClick={() => handleDownloadQR(takeawayQR, 'takeaway')} className="w-full justify-center border-sky-200 text-sky-600 hover:border-sky-300 hover:bg-sky-100"><QrCodeIcon className="mr-2 h-4 w-4" /> Download QR</Button>
                             </div>
-                            <label htmlFor="takeaway-base-url" className="mt-6 block text-xs font-semibold text-gray-700">Website address encoded in all QRs on this page</label>
-                            <input id="takeaway-base-url" type="url" value={qrBaseUrl} onChange={(event) => setQrBaseUrl(event.target.value)} className="mt-2 w-full max-w-lg rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200" placeholder="https://your-website.com" />
-                            {isLoopbackQr ? (
-                                <p className="mt-2 max-w-lg rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">A phone cannot open a localhost QR from your Mac. Enter your Mac’s network address here, such as http://192.168.x.x:5001, then download the updated QRs.</p>
-                            ) : (
-                                <p className="mt-2 text-xs text-gray-500">For phone scanning, both the phone and website must be reachable on the same network, or use your public website address.</p>
-                            )}
-                        </div>
-                        <div className="mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-[26px] border border-violet-100 bg-white p-4 shadow-lg shadow-violet-100/70">
-                            {takeawayQR ? <Image src={takeawayQR} alt="Takeaway ordering QR code" width={188} height={188} className="h-[188px] w-[188px]" unoptimized /> : <span className="text-center text-xs text-gray-400">Enter a valid website address to generate the QR</span>}
-                        </div>
-                    </div>
-                </section>
+                        ) : (
+                            <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-gray-400">
+                                <p className="text-sm">Preparing QR for this address...</p>
+                            </div>
+                        )}
+                        <a href={takeawayPath} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900">
+                            <ArrowTopRightOnSquareIcon className="mr-2 h-4 w-4" />
+                            Open Takeaway Menu
+                        </a>
+                    </section>
+                </div>
             )}
+
+            <div className="max-w-lg">
+                <label htmlFor="takeaway-base-url" className="block text-xs font-semibold text-gray-700">Website address for QR codes</label>
+                <input id="takeaway-base-url" type="url" value={qrBaseUrl} onChange={(event) => setQrBaseUrl(event.target.value)} className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200" placeholder="https://your-website.com" />
+                {isLoopbackQr ? (
+                    <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">A phone cannot open a localhost QR from your Mac. Enter your Mac’s network address here, such as http://192.168.x.x:5001, then download the updated QRs.</p>
+                ) : (
+                    <p className="mt-2 text-xs text-gray-500">For phone scanning, both the phone and website must be reachable on the same network, or use your public website address.</p>
+                )}
+            </div>
 
             <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold text-gray-900">Dine-in tables</h2>
@@ -204,66 +222,72 @@ export function TableList({ initialTables, restaurantId }: { initialTables: Tabl
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {dineInTables.map((table) => (
-                    <div
-                        key={table._id}
-                        className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all group"
-                    >
-                        <div className="flex justify-between items-start mb-6">
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Table</h3>
-                                <p className="text-3xl font-bold text-gray-900 font-display mt-1">{table.tableNumber}</p>
+                {dineInTables.map((table, index) => {
+                    const colors = tableColors(index);
+                    return (
+                        <div
+                            key={table._id}
+                            className="group rounded-2xl border-2 bg-white p-6 shadow-sm transition-all hover:shadow-lg"
+                            style={{ borderColor: colors.border }}
+                        >
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Table</h3>
+                                    <p className="text-3xl font-bold font-display mt-1" style={{ color: colors.accent }}>{table.tableNumber}</p>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDelete(table._id)}
+                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 -mr-2"
+                                >
+                                    <TrashIcon className="h-5 w-5" />
+                                </Button>
                             </div>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDelete(table._id)}
-                                className="text-red-400 hover:text-red-600 hover:bg-red-50 -mr-2"
-                            >
-                                <TrashIcon className="h-5 w-5" />
-                            </Button>
-                        </div>
 
-                        <div className="flex flex-col gap-4">
-                            {tableQRCodes[table._id] ? (
-                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col items-center gap-3 group-hover:bg-sky-50 group-hover:border-sky-100 transition-colors">
-                                    <div className="bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
-                                        <Image
-                                            src={tableQRCodes[table._id]}
-                                            alt={`QR Code for Table ${table.tableNumber}`}
-                                            width={120}
-                                            height={120}
-                                            className="rounded-md"
-                                        />
+                            <div className="flex flex-col gap-4">
+                                {tableQRCodes[table._id] ? (
+                                    <div className="flex flex-col items-center gap-3 rounded-xl border p-4" style={{ backgroundColor: colors.tint, borderColor: colors.border }}>
+                                        <div className="bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
+                                            <Image
+                                                src={tableQRCodes[table._id]}
+                                                alt={`QR Code for Table ${table.tableNumber}`}
+                                                width={120}
+                                                height={120}
+                                                className="rounded-md"
+                                            />
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleDownloadQR(tableQRCodes[table._id], table.tableNumber)}
+                                            className="w-full justify-center bg-white hover:opacity-80"
+                                            style={{ color: colors.accent, borderColor: colors.border }}
+                                        >
+                                            <QrCodeIcon className="h-4 w-4 mr-2" />
+                                            Download QR
+                                        </Button>
                                     </div>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDownloadQR(tableQRCodes[table._id], table.tableNumber)}
-                                        className="w-full justify-center text-sky-600 border-sky-200 hover:bg-sky-100 hover:border-sky-300"
-                                    >
-                                        <QrCodeIcon className="h-4 w-4 mr-2" />
-                                        Download QR
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="h-40 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 border border-dashed border-gray-200">
-                                    <p className="text-sm">Preparing QR for this address...</p>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="h-40 rounded-xl flex items-center justify-center text-gray-400 border border-dashed" style={{ backgroundColor: colors.tint, borderColor: colors.border }}>
+                                        <p className="text-sm">Preparing QR for this address...</p>
+                                    </div>
+                                )}
 
-                            <a
-                                href={`/table/${restaurantId}/${table._id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center p-3 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors border border-gray-100 text-sm font-medium"
-                            >
-                                <ArrowTopRightOnSquareIcon className="h-4 w-4 mr-2" />
-                                Open Table View
-                            </a>
+                                <a
+                                    href={`/table/${restaurantId}/${table._id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center p-3 rounded-xl transition-opacity hover:opacity-80 border text-sm font-medium"
+                                    style={{ backgroundColor: colors.tint, borderColor: colors.border, color: colors.accent }}
+                                >
+                                    <ArrowTopRightOnSquareIcon className="h-4 w-4 mr-2" />
+                                    Open Table View
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
 
                 {dineInTables.length === 0 && !showAddForm && (
                     <div className="col-span-full text-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm">

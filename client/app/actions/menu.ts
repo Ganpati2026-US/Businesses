@@ -154,6 +154,7 @@ export async function getPublicMenu(restaurantId: string) {
     try {
         await dbConnect();
         const items = await MenuItem.find({ restaurantId, isAvailable: true })
+            .select('-recipe')
             .sort({ category: 1, name: 1 })
             .lean();
         return JSON.parse(JSON.stringify(items));

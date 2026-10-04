@@ -36,7 +36,7 @@ export class MenuController {
             res.status(201).json(item);
         } catch (error: any) {
             console.error('Create menu item error:', error);
-            res.status(500).json({ error: 'Failed to create menu item' });
+            res.status(400).json({ error: error.message || 'Failed to create menu item' });
         }
     }
 
@@ -55,7 +55,7 @@ export class MenuController {
             res.json(item);
         } catch (error: any) {
             console.error('Update menu item error:', error);
-            res.status(500).json({ error: 'Failed to update menu item' });
+            res.status(400).json({ error: error.message || 'Failed to update menu item' });
         }
     }
 
@@ -122,6 +122,7 @@ export class MenuController {
             }
 
             const items = await MenuItem.find({ restaurantId, isAvailable: true })
+                .select('-recipe')
                 .lean()
                 .sort({ category: 1, name: 1 });
 

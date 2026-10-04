@@ -26,7 +26,7 @@ export function Cart({ cart, onClose, onUpdateQuantity, onPlaceOrder, isPlacingO
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [instructions, setInstructions] = useState('');
-    const [errors, setErrors] = useState({ name: '', phone: '' });
+    const [errors, setErrors] = useState({ name: '', phone: '', instructions: '' });
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -42,26 +42,34 @@ export function Cart({ cart, onClose, onUpdateQuantity, onPlaceOrder, isPlacingO
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const handlePlaceOrder = () => {
-        const newErrors = { name: '', phone: '' };
+        const newErrors = { name: '', phone: '', instructions: '' };
         let isValid = true;
 
         if (!name.trim()) {
             newErrors.name = 'Name is required';
+            isValid = false;
+        } else if (/\p{N}/u.test(name)) {
+            newErrors.name = 'Name cannot contain numbers';
             isValid = false;
         }
 
         if (!phone.trim()) {
             newErrors.phone = 'Phone number is required';
             isValid = false;
-        } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
-            newErrors.phone = 'Enter valid 10-digit number';
+        } else if (!/^\d{10}$/.test(phone)) {
+            newErrors.phone = 'Enter exactly 10 digits';
+            isValid = false;
+        }
+
+        if (instructions.trim() && !/^[\p{L}\p{M}\s]+$/u.test(instructions)) {
+            newErrors.instructions = 'Use letters and spaces only';
             isValid = false;
         }
 
         setErrors(newErrors);
 
         if (isValid) {
-            onPlaceOrder({ name, phone, instructions });
+            onPlaceOrder({ name: name.trim(), phone, instructions: instructions.trim() });
         }
     };
 
@@ -166,7 +174,9 @@ export function Cart({ cart, onClose, onUpdateQuantity, onPlaceOrder, isPlacingO
                                         id="cart-customer-name"
                                         placeholder="Enter name"
                                         value={name}
-                                        onChange={(e) => setName(e.target.value)}
+                                        onChange={(e) => { setName(e.target.value.replace(/\p{N}/gu, '')); setErrors((current) => ({ ...current, name: '' })); }}
+                                        type="text"
+                                        inputMode="text"
                                         autoComplete="name"
                                         className={`w-full rounded-xl border px-4 py-2.5 text-base focus:ring-2 focus:ring-offset-0 transition-all ${errors.name ? 'border-red-500' : ''}`}
                                         style={{ backgroundColor: theme.cardBg, borderColor: errors.name ? undefined : theme.border, color: theme.text }}
@@ -179,10 +189,14 @@ export function Cart({ cart, onClose, onUpdateQuantity, onPlaceOrder, isPlacingO
                                         id="cart-customer-phone"
                                         placeholder="10-digit mobile"
                                         value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/\D/g, '');
+                                            setPhone(digits);
+                                            setErrors((current) => ({ ...current, phone: digits.length > 10 ? 'Enter exactly 10 digits' : '' }));
+                                        }}
                                         type="tel"
-                                        autoComplete="tel"
-                                        inputMode="tel"
+                                        autoComplete="tel-national"
+                                        inputMode="numeric"
                                         className={`w-full rounded-xl border px-4 py-2.5 text-base focus:ring-2 focus:ring-offset-0 transition-all ${errors.phone ? 'border-red-500' : ''}`}
                                         style={{ backgroundColor: theme.cardBg, borderColor: errors.phone ? undefined : theme.border, color: theme.text }}
                                     />
@@ -195,9 +209,13 @@ export function Cart({ cart, onClose, onUpdateQuantity, onPlaceOrder, isPlacingO
                                 rows={2}
                                 placeholder="Any special requests for the kitchen?"
                                 value={instructions}
-                                onChange={(e) => setInstructions(e.target.value)}
-                                style={{ backgroundColor: theme.cardBg, borderColor: theme.border, color: theme.text }}
+                                onChange={(e) => { setInstructions(e.target.value.replace(/[^\p{L}\p{M}\s]/gu, '')); setErrors((current) => ({ ...current, instructions: '' })); }}
+                                aria-label="Special requests for the kitchen"
+                                aria-invalid={!!errors.instructions}
+                                style={{ backgroundColor: theme.cardBg, borderColor: errors.instructions ? '#ef4444' : theme.border, color: theme.text }}
                             />
+                            <p className="text-[10px]" style={{ color: theme.subtext }}>Letters and spaces only</p>
+                            {errors.instructions && <p className="text-red-500 text-[10px]">{errors.instructions}</p>}
                         </div>
 
                         <div className="pt-2">

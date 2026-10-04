@@ -10,6 +10,7 @@ export interface IMenuItem extends Document {
     dietaryType: 'veg' | 'non-veg' | 'vegan' | 'egg' | 'unknown';
     itemType: 'food' | 'beverage' | 'water' | 'other';
     isAvailable: boolean;
+    recipe: { inventoryItemId: mongoose.Types.ObjectId; quantity: number }[];
     restaurantId: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
@@ -58,6 +59,13 @@ const menuItemSchema = new Schema<IMenuItem>(
         isAvailable: {
             type: Boolean,
             default: true,
+        },
+        recipe: {
+            type: [{
+                inventoryItemId: { type: Schema.Types.ObjectId, ref: 'InventoryItem', required: true },
+                quantity: { type: Number, required: true, min: 0.0001 },
+            }],
+            default: [],
         },
         restaurantId: {
             type: Schema.Types.ObjectId,
