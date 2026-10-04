@@ -4,8 +4,8 @@ import mongoose from 'mongoose';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import dbConnect from '@/lib/db';
-import InventoryItem, { INVENTORY_UNITS } from '@/models/InventoryItem';
-import StockMovement from '@/models/StockMovement';
+import InventoryItem, { INVENTORY_UNITS, type InventoryUnit } from '@/models/InventoryItem';
+import StockMovement, { type IStockMovement } from '@/models/StockMovement';
 
 export type InventoryInput = {
     name: string;
@@ -64,7 +64,7 @@ export async function createInventoryItem(data: InventoryInput) {
         if (validationError) return { success: false, error: validationError };
         const item = await InventoryItem.create({
             restaurantId, name: data.name.trim(), sku: data.sku,
-            category: data.category?.trim() || 'General', unit: data.unit,
+            category: data.category?.trim() || 'General', unit: data.unit as InventoryUnit,
             currentStock: rounded(data.currentStock), reorderLevel: rounded(data.reorderLevel),
             costPerUnit: rounded(data.costPerUnit), supplier: data.supplier, notes: data.notes,
         });
@@ -93,7 +93,7 @@ export async function updateInventoryItem(id: string, data: InventoryInput) {
             { _id: id, restaurantId, isActive: true },
             {
                 name: data.name.trim(), sku: data.sku, category: data.category?.trim() || 'General',
-                unit: data.unit, reorderLevel: rounded(data.reorderLevel), costPerUnit: rounded(data.costPerUnit),
+                unit: data.unit as InventoryUnit, reorderLevel: rounded(data.reorderLevel), costPerUnit: rounded(data.costPerUnit),
                 supplier: data.supplier, notes: data.notes,
             },
             { new: true, runValidators: true },
@@ -126,7 +126,7 @@ export async function adjustInventoryStock(id: string, data: { type: string; qua
         const stockAfter = rounded(before.currentStock + delta);
         try {
             await StockMovement.create({
-                restaurantId, inventoryItemId: before._id, type: data.type, quantity: delta,
+                restaurantId, inventoryItemId: before._id, type: data.type as IStockMovement['type'], quantity: delta,
                 stockBefore: before.currentStock, stockAfter,
                 unitCost: data.type === 'purchase' && finiteNonNegative(data.unitCost) ? rounded(data.unitCost) : before.costPerUnit,
                 note: data.note,
